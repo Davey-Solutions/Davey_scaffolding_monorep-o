@@ -114,7 +114,7 @@ Responsibilities:
 
 ### 4.4 Auth Service
 
-- Issues and validates JWT access tokens.
+- Issues JWT access tokens; validation is performed by the API Gateway (and by services for defence in depth — see §5.1) using the token signing key.
 - Manages the (small) set of user accounts; passwords stored using a strong adaptive hash (e.g. bcrypt/argon2).
 - Endpoints: `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`.
 
