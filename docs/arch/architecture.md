@@ -47,7 +47,8 @@ Java is the preferred backend language, so the stack is standardised on the Java
 | Schema migrations | **Flyway** | Versioned SQL migrations run automatically on service start-up |
 | Build | **Gradle** multi-module build (one module per service) | Single `./gradlew build` for the whole monorepo; per-service artifacts |
 | Containerisation | **Docker**, images built with **Jib** (Gradle plugin) | Jib builds small layered images without a Dockerfile or Docker daemon in CI |
-| Testing | **JUnit 5**, **Testcontainers** (real Postgres in integration tests), Spring's `MockMvc`/`WebTestClient` | Tests run against the same DB engine as production |
+| Testing (unit/service level) | **JUnit 5**, **Testcontainers** (real Postgres in service-level tests), Spring's `MockMvc`/`WebTestClient` | Tests run against the same DB engine as production (see §5.4) |
+| Testing (integration/E2E) | **Python 3.12 + pytest + requests** against the running Docker Compose stack | Black-box tests through the real gateway; language-neutral and quick to write (see §5.4) |
 | Frontend | **React + TypeScript + Vite**, static build output | Small SPA; builds to plain static files that can be hosted for free |
 | CI/CD | **GitHub Actions** | Free for this repo's usage level; builds, tests, and publishes images to **GitHub Container Registry (GHCR)** (also free) |
 
@@ -194,7 +195,7 @@ The guiding principle is **prove it before paying for it**: v1 runs on the cheap
 
 - **Frontend**: the built static SPA is hosted for **free** on Cloudflare Pages or GitHub Pages (both have generous free tiers), calling the API on the VPS. Alternatively Caddy can serve it from the same box — also free.
 - **TLS**: Caddy obtains and renews Let's Encrypt certificates automatically. Domain: a `.co.uk` domain is ~£10/year (or start on a free subdomain).
-- **CI/CD**: GitHub Actions builds and tests on every push, publishes images to GHCR (free), and deploys by SSH-ing to the VPS and running `docker compose pull && docker compose up -d`. No paid deployment tooling.
+- **CI/CD**: GitHub Actions builds and tests on every push (unit, service-level, and Python integration tests — see §5.4), publishes images to GHCR (free), and deploys by SSH-ing to the VPS and running `docker compose pull && docker compose up -d`. No paid deployment tooling.
 - **Backups**: nightly `pg_dump` via cron, shipped to free/cheap object storage (e.g. Cloudflare R2's free tier or Backblaze B2 — pennies at this data volume). Backups are the one thing that must exist from day one.
 - **Local development**: the same `docker-compose.yml` runs the full system on a laptop, so dev and prod are identical.
 
@@ -218,7 +219,50 @@ The containerised, database-per-service design means growth is incremental, not 
 2. Move containers to a managed container platform (e.g. Fly.io, or a small Kubernetes/ECS setup) when one box is no longer enough.
 3. If JVM memory becomes the bottleneck before that, switch services to GraalVM native images (see §2.1).
 
-### 5.4 Monorepo layout (proposed)
+### 5.4 Testing strategy
+
+Testing follows the classic test pyramid: many fast unit tests, a solid layer of service-level tests, and a small suite of black-box integration tests that exercise the whole system exactly as the frontend does.
+
+#### 5.4.1 Unit tests (Java, per service)
+
+- **Tools**: JUnit 5 + Mockito + AssertJ, run by Gradle (`./gradlew test`).
+- **Scope**: business logic in isolation — services, validators, mappers — with repositories and external collaborators mocked. No Spring context, no database, no network; each test runs in milliseconds.
+- **What gets covered**: job status/paid transitions, input validation rules, price handling, auth token issuance logic, gateway route predicates.
+- **Where**: `src/test/java` inside each Gradle module (`services/job-service`, `services/auth-service`, `gateway`).
+- **Target**: the bulk of coverage lives here; a change to any service's logic should be provable without starting anything.
+
+Service-level tests (still Java, still `./gradlew test`) sit just above: `@SpringBootTest`/`@DataJpaTest` slices with **Testcontainers** spinning up a throwaway PostgreSQL, verifying JPA mappings, Flyway migrations, and controller behaviour via `MockMvc` — one service at a time, no other services required.
+
+#### 5.4.2 Integration tests (Python, against running servers)
+
+A separate, language-neutral **Python** suite treats the system as a black box: it talks HTTP to the **running** Docker Compose stack through the API Gateway, exactly like the real frontend.
+
+- **Tools**: Python 3.12, **pytest**, **requests** (plus `pytest` fixtures for setup/teardown). Dependencies pinned in `it-tests/requirements.txt`; no other Python tooling needed.
+- **How they run**:
+  1. `docker compose up -d --wait` starts the full stack (gateway, job-service, auth-service, Postgres) — the same compose file used for dev and prod.
+  2. `pytest it-tests/` runs against the gateway's base URL (`IT_BASE_URL` env var, default `http://localhost:8080`).
+  3. `docker compose down -v` tears everything down.
+- **Test data isolation**: each test creates its own jobs via the API and cleans up after itself (or the suite runs against a throwaway compose project), so tests are order-independent and repeatable.
+- **What gets covered**:
+  - **Auth flow**: login returns a JWT; requests without/with an invalid token are rejected (401) at the gateway; refresh works.
+  - **Job CRUD end-to-end**: create → read → list → update → delete through the gateway, verifying status codes, response bodies, and validation errors (400s).
+  - **Filtering**: `GET /api/v1/jobs?status=COMPLETED&paid=false` returns exactly the matching jobs.
+  - **Cross-service behaviour**: a token issued by the auth service is accepted by the gateway when calling the job service.
+  - **Health**: every service's `/healthz` reports healthy once the stack is up.
+- **Why Python here**: the integration suite deliberately shares no code with the services — a bug in shared code can't hide in both places. pytest + requests keeps these tests short, readable, and fast to write, and the suite doubles as executable documentation of the public API.
+
+#### 5.4.3 CI wiring
+
+GitHub Actions runs both layers on every push/PR, in order — cheap tests first:
+
+1. `./gradlew test` — unit + service-level tests (Testcontainers Postgres runs fine on GitHub-hosted runners).
+2. Build the service images (Jib).
+3. `docker compose up -d --wait` using the freshly built images, then `pytest it-tests/`; compose logs are dumped as artifacts on failure.
+4. Only if all layers pass are images pushed to GHCR and deployed.
+
+All of this stays within GitHub Actions' free tier — no extra cost.
+
+### 5.5 Monorepo layout (proposed)
 
 ```
 /
@@ -229,6 +273,9 @@ The containerised, database-per-service design means growth is incremental, not 
 │   └── auth-service/       # Spring Boot (Gradle module)
 ├── gateway/                # Spring Cloud Gateway (Gradle module)
 ├── frontend/               # React + TypeScript + Vite
+├── it-tests/               # Python (pytest + requests) integration tests
+│   ├── requirements.txt
+│   └── test_*.py
 ├── docker-compose.yml      # full system, used for dev and v1 prod
 ├── settings.gradle         # Gradle multi-module build
 └── build.gradle
@@ -255,4 +302,5 @@ The service boundaries anticipate the planned roadmap:
 | REST/JSON APIs | Simple, well understood, easy to test | Less efficient than gRPC (irrelevant at this scale) |
 | Database per service | Service autonomy, independent evolution | Cross-service queries require API calls |
 | JWT auth at gateway | Central enforcement, stateless services | Token revocation needs short expiry + refresh flow |
+| Python (pytest + requests) for black-box integration tests | Independent of the Java stack (bugs can't hide in shared code); concise; doubles as API documentation | Second language in the repo, but confined to `it-tests/` |
 | Synchronous calls only in v1 | Simplicity; no cross-service workflows yet | Eventing added later if/when needed |
