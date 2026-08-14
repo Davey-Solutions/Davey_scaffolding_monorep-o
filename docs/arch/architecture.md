@@ -11,6 +11,11 @@ Davey Scaffolding is a small scaffolding business based in London. This document
 - Create, read, update, and delete (CRUD) jobs.
 - Simple, secure access for a very small number of users (initially one).
 
+#### 1.1.1 Constraints
+
+- **Cost**: running costs must be as close to zero as possible until the system has proven its value (i.e. the owner actually uses it). Target: **≤ ~£5/month** all-in for v1. The architecture must still allow scaling up later without a rewrite.
+- **Team**: built and operated by one developer; Java is the preferred backend language.
+
 ### 1.2 Out of scope (future work)
 
 The following are explicitly out of scope for this initial version, but the architecture should not prevent them from being added later:
@@ -27,6 +32,29 @@ The system uses a **microservice architecture**, hosted in this monorepo. Each s
 - Is independently buildable, testable, and deployable as a container.
 
 Given the small initial scope, the number of services is deliberately kept low. The service boundaries are chosen to match the planned future domains (jobs, staff/rotas, invoicing) so the system can grow without re-architecting.
+
+### 2.1 Technology stack
+
+Java is the preferred backend language, so the stack is standardised on the Java/Spring ecosystem — one language, one build tool, one set of idioms across every service.
+
+| Layer | Choice | Why |
+|-------|--------|-----|
+| Language | **Java 21 (LTS)** | Preferred language; LTS gives free security updates for years; virtual threads make simple blocking code scale well |
+| Service framework | **Spring Boot 3.x** (Spring Web, Spring Data JPA, Spring Security, Bean Validation) | De-facto standard for Java microservices; huge ecosystem; embedded server so each service is a self-contained jar |
+| API Gateway | **Spring Cloud Gateway** | Same language/stack as the services; route config is plain YAML; built-in JWT validation via Spring Security's OAuth2 resource server support |
+| Auth / JWT | **Spring Security** + Spring's OAuth2 resource-server JWT support; passwords hashed with **bcrypt** (`BCryptPasswordEncoder`) | No custom crypto; well-audited defaults |
+| Database | **PostgreSQL 16** | Free, rock-solid, relational (the data is small and strongly structured); excellent Spring Data/JPA support |
+| Schema migrations | **Flyway** | Versioned SQL migrations run automatically on service start-up |
+| Build | **Gradle** multi-module build (one module per service) | Single `./gradlew build` for the whole monorepo; per-service artifacts |
+| Containerisation | **Docker**, images built with **Jib** (Gradle plugin) | Jib builds small layered images without a Dockerfile or Docker daemon in CI |
+| Testing | **JUnit 5**, **Testcontainers** (real Postgres in integration tests), Spring's `MockMvc`/`WebTestClient` | Tests run against the same DB engine as production |
+| Frontend | **React + TypeScript + Vite**, static build output | Small SPA; builds to plain static files that can be hosted for free |
+| CI/CD | **GitHub Actions** | Free for this repo's usage level; builds, tests, and publishes images to **GitHub Container Registry (GHCR)** (also free) |
+
+Notes:
+
+- **Memory footprint**: several JVMs on one small box is the main cost risk. Mitigations: cap each service's heap (e.g. `-Xmx128m` is ample for this workload), and if it ever gets tight, compile services to native binaries with **GraalVM native-image** (fully supported by Spring Boot 3) to cut RAM use dramatically. Not needed on day one.
+- **No service mesh / discovery server**: with a handful of services on one host, static routing in the gateway (Docker Compose service names) is enough. Eureka/Consul etc. are deliberately omitted.
 
 ## 3. System context
 
@@ -57,7 +85,7 @@ Given the small initial scope, the number of services is deliberately kept low. 
 
 ### 4.1 Web Frontend
 
-- Single-page application (SPA) served as static assets.
+- Single-page application (SPA) — React + TypeScript + Vite — served as static assets.
 - Talks only to the API Gateway over HTTPS.
 - Responsibilities:
   - Job list view with filters/badges for **completed** and **paid** status.
@@ -67,16 +95,16 @@ Given the small initial scope, the number of services is deliberately kept low. 
 
 ### 4.2 API Gateway
 
-- Single public entry point for all API traffic.
+- Single public entry point for all API traffic; implemented with **Spring Cloud Gateway**.
 - Responsibilities:
-  - TLS termination.
-  - Request routing to backend services (`/api/v1/jobs/** → Job Service`, `/api/v1/auth/** → Auth Service`).
+  - Request routing to backend services (`/api/v1/jobs/** → Job Service`, `/api/v1/auth/** → Auth Service`) via static YAML routes.
   - Authentication enforcement (validates JWTs issued by the Auth Service).
   - Rate limiting and basic request validation.
+- TLS termination is handled just in front of the gateway by the reverse proxy (Caddy — see §5.3), which manages Let's Encrypt certificates automatically.
 
 ### 4.3 Job Service
 
-The core service for this release. Owns the job domain and its data.
+The core service for this release. Owns the job domain and its data. Implemented as a Spring Boot 3 application (Spring Web + Spring Data JPA + Flyway) against its own PostgreSQL database.
 
 Responsibilities:
 
@@ -114,15 +142,18 @@ Responsibilities:
 
 ### 4.4 Auth Service
 
+- Spring Boot 3 application using Spring Security.
 - Issues JWT access tokens; validation is performed by the API Gateway (and by services for defence in depth — see §5.1) using the token signing key.
-- Manages the (small) set of user accounts; passwords stored using a strong adaptive hash (e.g. bcrypt/argon2).
+- Manages the (small) set of user accounts; passwords stored using **bcrypt** (`BCryptPasswordEncoder`).
 - Endpoints: `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`.
 
 ### 4.5 Databases
 
-- One database per service (Jobs DB, Users DB) to preserve service autonomy.
-- Relational databases (e.g. PostgreSQL) — the data is small and strongly structured.
-- No service accesses another service's database directly; all cross-service access goes through APIs.
+- **PostgreSQL 16** for everything.
+- **Logical** database-per-service: to keep costs down, v1 runs a **single Postgres instance** (one container) hosting a **separate database per service** (`jobs_db`, `users_db`), each with its own DB user that can only access its own database. This preserves service autonomy — no shared tables, no cross-database queries — while paying for one instance.
+- If/when the system grows, each database can be lifted onto its own (or a managed) Postgres instance with no application changes beyond a connection string.
+- Schema changes are applied by **Flyway** migrations owned by each service.
+- No service accesses another service's database; all cross-service access goes through APIs.
 
 ## 5. Cross-cutting concerns
 
@@ -141,9 +172,51 @@ Responsibilities:
 
 ### 5.3 Deployment
 
-- Each service is packaged as a Docker container.
-- CI (GitHub Actions) builds, tests, and publishes images per service from this monorepo.
-- Target runtime: a small managed container platform (e.g. a single-node container host or managed container service) — the workload is tiny, so cost and simplicity outweigh elasticity.
+The guiding principle is **prove it before paying for it**: v1 runs on the cheapest predictable setup that still looks and operates like a real production system.
+
+#### v1: single small VPS + Docker Compose
+
+- One small VPS (e.g. Hetzner CX22 at ~€4/month, or an equivalent ~£4–5/month box from DigitalOcean/OVH). 2 vCPU / 4 GB RAM is comfortably enough for four small JVM containers plus Postgres.
+- Everything runs on that one box via a single **`docker-compose.yml`**:
+
+```
+                     VPS (~£5/month)
+  +---------------------------------------------------+
+  |  Caddy (reverse proxy, automatic HTTPS via        |
+  |         Let's Encrypt — free certificates)        |
+  |     |                                             |
+  |     v                                             |
+  |  api-gateway ──> job-service ──> postgres         |
+  |        └───────> auth-service ──> (same instance, |
+  |                                    separate DBs)  |
+  +---------------------------------------------------+
+```
+
+- **Frontend**: the built static SPA is hosted for **free** on Cloudflare Pages or GitHub Pages (both have generous free tiers), calling the API on the VPS. Alternatively Caddy can serve it from the same box — also free.
+- **TLS**: Caddy obtains and renews Let's Encrypt certificates automatically. Domain: a `.co.uk` domain is ~£10/year (or start on a free subdomain).
+- **CI/CD**: GitHub Actions builds and tests on every push, publishes images to GHCR (free), and deploys by SSH-ing to the VPS and running `docker compose pull && docker compose up -d`. No paid deployment tooling.
+- **Backups**: nightly `pg_dump` via cron, shipped to free/cheap object storage (e.g. Cloudflare R2's free tier or Backblaze B2 — pennies at this data volume). Backups are the one thing that must exist from day one.
+- **Local development**: the same `docker-compose.yml` runs the full system on a laptop, so dev and prod are identical.
+
+Estimated running costs for v1:
+
+| Item | Cost |
+|------|------|
+| VPS (all services + Postgres) | ~£4–5/month |
+| Frontend hosting (Cloudflare/GitHub Pages) | £0 |
+| TLS certificates (Let's Encrypt via Caddy) | £0 |
+| CI + container registry (GitHub Actions + GHCR) | £0 |
+| Backup storage (R2/B2 free tier) | ~£0 |
+| Domain name | ~£10/year |
+| **Total** | **~£5/month** |
+
+#### Later: scaling up (only if usage justifies it)
+
+The containerised, database-per-service design means growth is incremental, not a rewrite:
+
+1. Move Postgres to a managed offering (e.g. Neon, Supabase, or a cloud provider's managed Postgres) for automated backups/HA.
+2. Move containers to a managed container platform (e.g. Fly.io, or a small Kubernetes/ECS setup) when one box is no longer enough.
+3. If JVM memory becomes the bottleneck before that, switch services to GraalVM native images (see §2.1).
 
 ### 5.4 Monorepo layout (proposed)
 
@@ -152,10 +225,13 @@ Responsibilities:
 ├── docs/
 │   └── arch/               # this document
 ├── services/
-│   ├── job-service/
-│   └── auth-service/
-├── gateway/
-└── frontend/
+│   ├── job-service/        # Spring Boot (Gradle module)
+│   └── auth-service/       # Spring Boot (Gradle module)
+├── gateway/                # Spring Cloud Gateway (Gradle module)
+├── frontend/               # React + TypeScript + Vite
+├── docker-compose.yml      # full system, used for dev and v1 prod
+├── settings.gradle         # Gradle multi-module build
+└── build.gradle
 ```
 
 ## 6. Future extensions
@@ -171,6 +247,11 @@ The service boundaries anticipate the planned roadmap:
 | Decision | Rationale | Trade-off |
 |----------|-----------|-----------|
 | Microservices with few services | Requested style; boundaries match future domains | More operational overhead than a monolith for a small app |
+| Java 21 + Spring Boot everywhere | Preferred language; one stack to learn and maintain; mature ecosystem | JVM memory footprint (mitigated by heap caps / GraalVM native if needed) |
+| PostgreSQL for all services | Free, reliable, relational fits the data; first-class Spring support | None significant at this scale |
+| Single Postgres instance, separate DB per service | Keeps v1 cost to one instance while preserving service data isolation | Shared failure domain until DBs are split onto their own instances |
+| Single VPS + Docker Compose for v1 | ~£5/month total; identical setup for dev and prod | No high availability — acceptable for a single-user tool proving its value |
+| Free static hosting for the SPA | £0; SPAs are just static files | Frontend deploys separately from backend |
 | REST/JSON APIs | Simple, well understood, easy to test | Less efficient than gRPC (irrelevant at this scale) |
 | Database per service | Service autonomy, independent evolution | Cross-service queries require API calls |
 | JWT auth at gateway | Central enforcement, stateless services | Token revocation needs short expiry + refresh flow |
