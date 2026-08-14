@@ -168,7 +168,7 @@ Responsibilities:
 ### 5.2 Observability
 
 - Structured (JSON) logging from every service with a correlation/request ID propagated through the gateway.
-- Health-check endpoint (`/healthz`) on every service.
+- Health-check endpoint (Spring Boot Actuator's `/actuator/health`) on every service.
 - Basic metrics (request rate, error rate, latency) per service.
 
 ### 5.3 Deployment
@@ -248,7 +248,7 @@ A separate, language-neutral **Python** suite treats the system as a black box: 
   - **Job CRUD end-to-end**: create → read → list → update → delete through the gateway, verifying status codes, response bodies, and validation errors (400s).
   - **Filtering**: `GET /api/v1/jobs?status=COMPLETED&paid=false` returns exactly the matching jobs.
   - **Cross-service behaviour**: a token issued by the auth service is accepted by the gateway when calling the job service.
-  - **Health**: every service's `/healthz` reports healthy once the stack is up.
+  - **Health**: every service's `/actuator/health` reports healthy once the stack is up.
 - **Why Python here**: the integration suite deliberately shares no code with the services — a bug in shared code can't hide in both places. pytest + requests keeps these tests short, readable, and fast to write, and the suite doubles as executable documentation of the public API.
 
 #### 5.4.3 CI wiring
