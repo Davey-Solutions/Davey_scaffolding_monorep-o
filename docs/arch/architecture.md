@@ -176,7 +176,7 @@ The guiding principle is **prove it before paying for it**: v1 runs on the cheap
 
 #### v1: single small VPS + Docker Compose
 
-- One small VPS (e.g. Hetzner CX22 at ~€4/month, or an equivalent ~£4–5/month box from DigitalOcean/OVH). 2 vCPU / 4 GB RAM is comfortably enough for four small JVM containers plus Postgres.
+- One small VPS (e.g. Hetzner CX22 at ~€4 (~£3.50)/month, or an equivalent ~£4–5/month box from DigitalOcean/OVH). 2 vCPU / 4 GB RAM is comfortably enough for four small JVM containers plus Postgres.
 - Everything runs on that one box via a single **`docker-compose.yml`**:
 
 ```
