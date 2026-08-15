@@ -222,7 +222,7 @@ The containerised, database-per-service design means growth is incremental, not 
 
 ### 5.4 Testing strategy
 
-Testing follows the classic test pyramid: many fast unit tests, a solid layer of service-level tests, and a small suite of black-box integration tests that exercise the whole system exactly as the frontend does.
+Testing follows the classic test pyramid: many fast unit tests, a solid layer of service-level tests, and black-box integration tests at two levels — per-service suites against each running service in isolation, and a whole-system suite that exercises the full stack exactly as the frontend does.
 
 #### 5.4.1 Unit tests (Java, per service)
 
@@ -236,30 +236,42 @@ Service-level tests (still Java, still `./mvnw test`) sit just above: `@SpringBo
 
 #### 5.4.2 Integration tests (Python, against running servers)
 
-A separate, language-neutral **Python** suite treats the system as a black box: it talks HTTP to the **running** Docker Compose stack through the API Gateway, exactly like the real frontend.
+A separate, language-neutral **Python** suite talks HTTP to **running** containers, exactly like a real client. It is split into two levels: **per-service** suites that exercise each service directly in isolation, and a **whole-system** suite that exercises the full stack through the API Gateway.
 
 - **Tools**: Python 3.12, **pytest**, **requests** (plus `pytest` fixtures for setup/teardown). Dependencies pinned in `it-tests/requirements.txt`; no other Python tooling needed.
-- **How they run**:
+- **Layout**: one pytest package per service plus a system package, all under `it-tests/` (see §5.5): `it-tests/job-service/`, `it-tests/auth-service/`, `it-tests/gateway/`, and `it-tests/system/`. Shared fixtures/helpers live in `it-tests/conftest.py`.
+
+**Per-service IT suites** — each service tested as a black box on its own:
+
+- **How they run**: `docker compose up -d --wait <service> postgres` starts only the service under test and its database (no gateway, no other services), then `pytest it-tests/<service>/` runs against the service's own port (`IT_<SERVICE>_BASE_URL` env vars, e.g. `IT_JOB_SERVICE_BASE_URL`, defaulting to the service's compose port).
+- **What gets covered per service**:
+  - **job-service**: job CRUD, status/paid transitions, validation errors (400s), filtering (`?status=COMPLETED&paid=false`), Flyway-migrated schema behaving correctly against real Postgres.
+  - **auth-service**: login issues a JWT with the expected claims/expiry; wrong credentials rejected; refresh flow works.
+  - **gateway**: routing rules forward to configured targets; requests without/with an invalid JWT are rejected (401); health endpoint.
+- **Why per service**: failures point directly at one service; suites run in parallel in CI; a service can be changed and re-verified without starting the whole stack.
+
+**Whole-system IT suite** — the full stack as the frontend sees it:
+
+- **How it runs**:
   1. `docker compose up -d --wait` starts the full stack (gateway, job-service, auth-service, Postgres) — the same compose file used for dev and prod.
-  2. `pytest it-tests/` runs against the gateway's base URL (`IT_BASE_URL` env var, default `http://localhost:8080`).
+  2. `pytest it-tests/system/` runs against the gateway's base URL (`IT_BASE_URL` env var, default `http://localhost:8080`).
   3. `docker compose down -v` tears everything down.
-- **Test data isolation**: each test creates its own jobs via the API and cleans up after itself (or the suite runs against a throwaway compose project), so tests are order-independent and repeatable.
-- **What gets covered**:
-  - **Auth flow**: login returns a JWT; requests without/with an invalid token are rejected (401) at the gateway; refresh works.
-  - **Job CRUD end-to-end**: create → read → list → update → delete through the gateway, verifying status codes, response bodies, and validation errors (400s).
-  - **Filtering**: `GET /api/v1/jobs?status=COMPLETED&paid=false` returns exactly the matching jobs.
-  - **Cross-service behaviour**: a token issued by the auth service is accepted by the gateway when calling the job service.
+- **What gets covered** (cross-service journeys only — per-service detail lives in the suites above):
+  - **Auth flow end-to-end**: login via the gateway returns a JWT; that token is accepted by the gateway when calling the job service; unauthenticated requests are rejected at the gateway.
+  - **Job lifecycle through the gateway**: create → read → list → update → delete as a logged-in user.
   - **Health**: every service's `/actuator/health` reports healthy once the stack is up.
-- **Why Python here**: the integration suite deliberately shares no code with the services — a bug in shared code can't hide in both places. pytest + requests keeps these tests short, readable, and fast to write, and the suite doubles as executable documentation of the public API.
+- **Test data isolation**: each test creates its own data via the API and cleans up after itself (or the suite runs against a throwaway compose project), so tests are order-independent and repeatable.
+- **Why Python here**: the integration suites deliberately share no code with the services — a bug in shared code can't hide in both places. pytest + requests keeps these tests short, readable, and fast to write, and the suites double as executable documentation of each service's API and of the public API.
 
 #### 5.4.3 CI wiring
 
-GitHub Actions runs both layers on every push/PR, in order — cheap tests first:
+GitHub Actions runs all layers on every push/PR, in order — cheap tests first:
 
 1. `./mvnw test` — unit + service-level tests (Testcontainers Postgres runs fine on GitHub-hosted runners).
 2. Build the service images (Jib).
-3. `docker compose up -d --wait` using the freshly built images, then `pytest it-tests/`; compose logs are dumped as artifacts on failure.
-4. Only if all layers pass are images pushed to GHCR and deployed.
+3. **Per-service IT suites**: for each service, `docker compose up -d --wait <service> postgres` then `pytest it-tests/<service>/` (run as parallel matrix jobs).
+4. **Whole-system IT suite**: `docker compose up -d --wait` using the freshly built images, then `pytest it-tests/system/`; compose logs are dumped as artifacts on failure.
+5. Only if all layers pass are images pushed to GHCR and deployed.
 
 All of this stays within GitHub Actions' free tier — no extra cost.
 
@@ -276,7 +288,11 @@ All of this stays within GitHub Actions' free tier — no extra cost.
 ├── frontend/               # React + TypeScript + Vite
 ├── it-tests/               # Python (pytest + requests) integration tests
 │   ├── requirements.txt
-│   └── test_*.py
+│   ├── conftest.py         # shared fixtures/helpers
+│   ├── job-service/        # per-service IT suite (service + Postgres only)
+│   ├── auth-service/       # per-service IT suite (service + Postgres only)
+│   ├── gateway/            # per-service IT suite (routing/auth rules)
+│   └── system/             # whole-system E2E suite through the gateway
 ├── docker-compose.yml      # full system, used for dev and v1 prod
 └── pom.xml                 # Maven parent (multi-module build)
 ```
@@ -305,4 +321,5 @@ The service boundaries anticipate the planned roadmap:
 | Database per service | Service autonomy, independent evolution | Cross-service queries require API calls |
 | JWT auth at gateway | Central enforcement, stateless services | Token revocation needs short expiry + refresh flow |
 | Python (pytest + requests) for black-box integration tests | Independent of the Java stack (bugs can't hide in shared code); concise; doubles as API documentation | Second language in the repo, but confined to `it-tests/` |
+| IT suites per service plus a whole-system suite | Failures point at one service; per-service suites parallelise in CI; the system suite covers cross-service journeys only | Some overlap in setup fixtures; slightly more CI orchestration than a single suite |
 | Synchronous calls only in v1 | Simplicity; no cross-service workflows yet | Eventing added later if/when needed |
