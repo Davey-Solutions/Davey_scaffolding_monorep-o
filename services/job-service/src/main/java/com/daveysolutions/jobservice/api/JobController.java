@@ -80,8 +80,7 @@ public class JobController {
     public Job updateJob(@PathVariable UUID id, @Valid @RequestBody UpdateJobRequest request) {
         Job job = jobRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Job not found"));
-        job.setCustomerName(request.customerName());
-        job.setSiteAddress(request.siteAddress());
+        job.update(request.customerName(), request.siteAddress());
         return jobRepository.save(job);
     }
 }

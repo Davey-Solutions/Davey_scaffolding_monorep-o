@@ -101,6 +101,17 @@ public class Job {
     }
 
     /**
+     * Updates mutable core fields for this job.
+     *
+     * @param customerName updated customer name
+     * @param siteAddress  updated site address
+     */
+    public void update(String customerName, String siteAddress) {
+        this.customerName = customerName;
+        this.siteAddress = siteAddress;
+    }
+
+    /**
      * Sets {@link #createdAt} and {@link #updatedAt} to the current instant
      * immediately before the entity is first written to the database.
      */
