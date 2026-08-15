@@ -128,6 +128,14 @@ class JobControllerTest {
     }
 
     @Test
+    void listJobs_filterByInvalidStatus_returnsBadRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/jobs").param("status", "NOT_A_REAL_STATUS"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(jobRepository);
+    }
+
+    @Test
     void getJob_existingId_returnsJob() throws Exception {
         Job saved = buildSavedJob("ACME Ltd", "1 High Street");
         when(jobRepository.findById(saved.getId())).thenReturn(Optional.of(saved));
