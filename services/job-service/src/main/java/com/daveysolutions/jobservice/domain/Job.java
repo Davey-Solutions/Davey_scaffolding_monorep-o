@@ -1,6 +1,7 @@
 package com.daveysolutions.jobservice.domain;
 
 import com.daveysolutions.jobservice.api.CreateJobRequest;
+import com.daveysolutions.jobservice.api.UpdateJobRequest;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -103,12 +104,11 @@ public class Job {
     /**
      * Updates mutable core fields for this job.
      *
-     * @param customerName updated customer name
-     * @param siteAddress  updated site address
+     * @param request the validated update request containing mutable fields
      */
-    public void update(String customerName, String siteAddress) {
-        this.customerName = customerName;
-        this.siteAddress = siteAddress;
+    public void update(UpdateJobRequest request) {
+        this.customerName = request.customerName();
+        this.siteAddress = request.siteAddress();
     }
 
     /**
