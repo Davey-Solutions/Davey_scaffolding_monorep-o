@@ -45,8 +45,8 @@ Java is the preferred backend language, so the stack is standardised on the Java
 | Auth / JWT | **Spring Security** + Spring's OAuth2 resource-server JWT support; passwords hashed with **bcrypt** (`BCryptPasswordEncoder`) | No custom crypto; well-audited defaults |
 | Database | **PostgreSQL 16** | Free, rock-solid, relational (the data is small and strongly structured); excellent Spring Data/JPA support |
 | Schema migrations | **Flyway** | Versioned SQL migrations run automatically on service start-up |
-| Build | **Gradle** multi-module build (one module per service) | Single `./gradlew build` for the whole monorepo; per-service artifacts |
-| Containerisation | **Docker**, images built with **Jib** (Gradle plugin) | Jib builds small layered images without a Dockerfile or Docker daemon in CI |
+| Build | **Maven** multi-module build (one module per service) | Single `./mvnw verify` for the whole monorepo; per-service artifacts; conventional, declarative builds with a huge ecosystem |
+| Containerisation | **Docker**, images built with **Jib** (Maven plugin) | Jib builds small layered images without a Dockerfile or Docker daemon in CI |
 | Testing (unit/service level) | **JUnit 5**, **Testcontainers** (real Postgres in service-level tests), Spring's `MockMvc`/`WebTestClient` | Tests run against the same DB engine as production (see §5.4) |
 | Testing (integration/E2E) | **Python 3.12 + pytest + requests** against the running Docker Compose stack | Black-box tests through the real gateway; language-neutral and quick to write (see §5.4) |
 | Frontend | **React + TypeScript + Vite**, static build output | Small SPA; builds to plain static files that can be hosted for free |
@@ -198,6 +198,7 @@ The guiding principle is **prove it before paying for it**: v1 runs on the cheap
 - **CI/CD**: GitHub Actions builds and tests on every push (unit, service-level, and Python integration tests — see §5.4), publishes images to GHCR (free), and deploys by SSH-ing to the VPS and running `docker compose pull && docker compose up -d`. No paid deployment tooling.
 - **Backups**: nightly `pg_dump` via cron, shipped to free/cheap object storage (e.g. Cloudflare R2's free tier or Backblaze B2 — pennies at this data volume). Backups are the one thing that must exist from day one.
 - **Local development**: the same `docker-compose.yml` runs the full system on a laptop, so dev and prod are identical.
+- **Infrastructure as code**: **not needed for v1**. Terraform/Terragrunt earn their keep when there is real cloud infrastructure to manage (VPCs, load balancers, managed databases, multiple environments); here the entire infrastructure is one manually-provisioned VPS, and everything *on* the box is already declared as code in `docker-compose.yml` (plus the Caddyfile). A short, documented server-setup script (or the provider's one-click Docker image) is sufficient and keeps the toolchain small. If the system later moves to a cloud provider with more moving parts, plain **Terraform** can be introduced then — Terragrunt only becomes worthwhile with many environments/modules, which is far beyond this system's horizon.
 
 Estimated running costs for v1:
 
@@ -225,13 +226,13 @@ Testing follows the classic test pyramid: many fast unit tests, a solid layer of
 
 #### 5.4.1 Unit tests (Java, per service)
 
-- **Tools**: JUnit 5 + Mockito + AssertJ, run by Gradle (`./gradlew test`).
+- **Tools**: JUnit 5 + Mockito + AssertJ, run by Maven (`./mvnw test`).
 - **Scope**: business logic in isolation — services, validators, mappers — with repositories and external collaborators mocked. No Spring context, no database, no network; each test runs in milliseconds.
 - **What gets covered**: job status/paid transitions, input validation rules, price handling, auth token issuance logic, gateway route predicates.
-- **Where**: `src/test/java` inside each Gradle module (`services/job-service`, `services/auth-service`, `gateway`).
+- **Where**: `src/test/java` inside each Maven module (`services/job-service`, `services/auth-service`, `gateway`).
 - **Target**: the bulk of coverage lives here; a change to any service's logic should be provable without starting anything.
 
-Service-level tests (still Java, still `./gradlew test`) sit just above: `@SpringBootTest`/`@DataJpaTest` slices with **Testcontainers** spinning up a throwaway PostgreSQL, verifying JPA mappings, Flyway migrations, and controller behaviour via `MockMvc` — one service at a time, no other services required.
+Service-level tests (still Java, still `./mvnw test`) sit just above: `@SpringBootTest`/`@DataJpaTest` slices with **Testcontainers** spinning up a throwaway PostgreSQL, verifying JPA mappings, Flyway migrations, and controller behaviour via `MockMvc` — one service at a time, no other services required.
 
 #### 5.4.2 Integration tests (Python, against running servers)
 
@@ -255,7 +256,7 @@ A separate, language-neutral **Python** suite treats the system as a black box: 
 
 GitHub Actions runs both layers on every push/PR, in order — cheap tests first:
 
-1. `./gradlew test` — unit + service-level tests (Testcontainers Postgres runs fine on GitHub-hosted runners).
+1. `./mvnw test` — unit + service-level tests (Testcontainers Postgres runs fine on GitHub-hosted runners).
 2. Build the service images (Jib).
 3. `docker compose up -d --wait` using the freshly built images, then `pytest it-tests/`; compose logs are dumped as artifacts on failure.
 4. Only if all layers pass are images pushed to GHCR and deployed.
@@ -269,16 +270,15 @@ All of this stays within GitHub Actions' free tier — no extra cost.
 ├── docs/
 │   └── arch/               # this document
 ├── services/
-│   ├── job-service/        # Spring Boot (Gradle module)
-│   └── auth-service/       # Spring Boot (Gradle module)
-├── gateway/                # Spring Cloud Gateway (Gradle module)
+│   ├── job-service/        # Spring Boot (Maven module)
+│   └── auth-service/       # Spring Boot (Maven module)
+├── gateway/                # Spring Cloud Gateway (Maven module)
 ├── frontend/               # React + TypeScript + Vite
 ├── it-tests/               # Python (pytest + requests) integration tests
 │   ├── requirements.txt
 │   └── test_*.py
 ├── docker-compose.yml      # full system, used for dev and v1 prod
-├── settings.gradle         # Gradle multi-module build
-└── build.gradle
+└── pom.xml                 # Maven parent (multi-module build)
 ```
 
 ## 6. Future extensions
@@ -298,6 +298,8 @@ The service boundaries anticipate the planned roadmap:
 | PostgreSQL for all services | Free, reliable, relational fits the data; first-class Spring support | None significant at this scale |
 | Single Postgres instance, separate DB per service | Keeps v1 cost to one instance while preserving service data isolation | Shared failure domain until DBs are split onto their own instances |
 | Single VPS + Docker Compose for v1 | ~£5/month total; identical setup for dev and prod | No high availability — acceptable for a single-user tool proving its value |
+| Maven for the multi-module build | Declarative, conventional builds; ubiquitous tooling/CI support; first-class Spring Boot and Jib plugins | More verbose XML than Gradle; slightly slower builds (irrelevant at this repo size) |
+| No Terraform/Terragrunt in v1 | Only infrastructure is one VPS; `docker-compose.yml` + Caddyfile already declare everything on the box; avoids extra tooling/state management | Server provisioning is documented/scripted rather than fully declarative; adopt Terraform later if cloud infra grows |
 | Free static hosting for the SPA | £0; SPAs are just static files | Frontend deploys separately from backend |
 | REST/JSON APIs | Simple, well understood, easy to test | Less efficient than gRPC (irrelevant at this scale) |
 | Database per service | Service autonomy, independent evolution | Cross-service queries require API calls |
