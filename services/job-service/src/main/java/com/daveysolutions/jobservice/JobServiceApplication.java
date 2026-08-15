@@ -13,6 +13,11 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class JobServiceApplication {
 
+    /**
+     * Starts the Job Service application.
+     *
+     * @param args command-line arguments passed to the Spring application context
+     */
     public static void main(String[] args) {
         SpringApplication.run(JobServiceApplication.class, args);
     }
