@@ -44,7 +44,7 @@ public class JobController {
     @GetMapping("/{id}")
     public Job getJob(@PathVariable("id") UUID id) {
         return jobRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Job not found: " + id));
     }
 
     /**

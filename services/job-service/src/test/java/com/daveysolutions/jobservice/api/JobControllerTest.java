@@ -13,6 +13,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -78,7 +79,7 @@ class JobControllerTest {
     @Test
     void getJob_existingId_returnsJob() throws Exception {
         Job saved = buildSavedJob("ACME Ltd", "1 High Street");
-        when(jobRepository.findById(saved.getId())).thenReturn(java.util.Optional.of(saved));
+        when(jobRepository.findById(saved.getId())).thenReturn(Optional.of(saved));
 
         mockMvc.perform(get("/api/v1/jobs/{id}", saved.getId()))
                 .andExpect(status().isOk())
@@ -90,7 +91,7 @@ class JobControllerTest {
     @Test
     void getJob_missingId_returns404() throws Exception {
         UUID missingId = UUID.randomUUID();
-        when(jobRepository.findById(missingId)).thenReturn(java.util.Optional.empty());
+        when(jobRepository.findById(missingId)).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/api/v1/jobs/{id}", missingId))
                 .andExpect(status().isNotFound());
