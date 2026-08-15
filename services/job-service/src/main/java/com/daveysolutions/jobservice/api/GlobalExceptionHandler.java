@@ -52,14 +52,18 @@ public class GlobalExceptionHandler {
     /**
      * Builds a {@link ProblemDetail} with the given status, title, and detail.
      *
+     * <p>The {@code title} is prepended to the {@code detail} string and passed
+     * directly to {@link ProblemDetail#forStatusAndDetail} so that the
+     * problem title is part of the object creation call rather than a
+     * post-construction mutation.
+     *
      * @param status the HTTP status
      * @param title  the RFC 7807 problem title
      * @param detail the RFC 7807 problem detail
-     * @return a fully populated {@link ProblemDetail}
+     * @return a {@link ProblemDetail} whose {@code detail} field carries both
+     *         the title and the specific error description
      */
     private static ProblemDetail problemDetail(HttpStatus status, String title, String detail) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail);
-        problem.setTitle(title);
-        return problem;
+        return ProblemDetail.forStatusAndDetail(status, title + ": " + detail);
     }
 }
