@@ -1,2 +1,0 @@
--- Flyway baseline migration placeholder for job-service
--- Domain schema will be added in subsequent milestones
