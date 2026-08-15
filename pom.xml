@@ -26,6 +26,7 @@
     </dependencyManagement>
 
     <modules>
+        <module>services/auth-service</module>
         <module>services/job-service</module>
     </modules>
 </project>
