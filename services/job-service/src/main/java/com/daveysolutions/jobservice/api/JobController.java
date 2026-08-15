@@ -5,8 +5,8 @@ import com.daveysolutions.jobservice.domain.JobRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.UUID;
@@ -62,6 +62,26 @@ public class JobController {
     @ResponseStatus(HttpStatus.CREATED)
     public Job createJob(@Valid @RequestBody CreateJobRequest request) {
         return jobRepository.save(new Job(request));
+    }
+
+    /**
+     * Updates an existing job using the supplied request body.
+     *
+     * <p>Returns {@code 200 OK} together with the updated job.
+     * Returns {@code 400 Bad Request} when {@code customerName} or
+     * {@code siteAddress} is absent or blank.
+     * Returns {@code 404 Not Found} when no job exists for {@code id}.
+     *
+     * @param id      unique identifier of the job to update
+     * @param request the validated request body
+     * @return the updated {@link Job}
+     */
+    @PutMapping("/{id}")
+    public Job updateJob(@PathVariable("id") UUID id, @Valid @RequestBody UpdateJobRequest request) {
+        Job job = jobRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Job not found"));
+        job.update(request);
+        return jobRepository.save(job);
     }
 
     /**
