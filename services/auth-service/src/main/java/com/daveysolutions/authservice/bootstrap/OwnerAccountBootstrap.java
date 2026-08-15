@@ -11,8 +11,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.util.Locale;
-
 /**
  * Optional environment-driven bootstrap that seeds the initial owner account.
  */
@@ -41,7 +39,7 @@ public class OwnerAccountBootstrap implements ApplicationRunner {
             return;
         }
 
-        String normalizedEmail = ownerEmail.trim().toLowerCase(Locale.ROOT);
+        String normalizedEmail = User.normalizeEmail(ownerEmail);
         if (userRepository.findByEmail(normalizedEmail).isPresent()) {
             return;
         }

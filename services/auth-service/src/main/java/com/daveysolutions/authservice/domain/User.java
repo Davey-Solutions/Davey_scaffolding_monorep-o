@@ -16,6 +16,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.Instant;
+import java.util.Locale;
 import java.util.UUID;
 
 /**
@@ -38,7 +39,7 @@ public class User {
     private String email;
 
     /** BCrypt hash of the user's password. */
-    @Column(name = "password_hash", nullable = false, length = 72)
+    @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
     /** Authorization role assigned to this user. */
@@ -72,5 +73,24 @@ public class User {
     @PreUpdate
     void preUpdate() {
         updatedAt = Instant.now();
+    }
+
+    /**
+     * Sets the user email using normalized lowercase/trimmed format.
+     *
+     * @param email user email to assign
+     */
+    public void setEmail(String email) {
+        this.email = normalizeEmail(email);
+    }
+
+    /**
+     * Normalizes an email address for consistent storage and lookup.
+     *
+     * @param email email value to normalize
+     * @return normalized email, or {@code null} when input is null
+     */
+    public static String normalizeEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
     }
 }
