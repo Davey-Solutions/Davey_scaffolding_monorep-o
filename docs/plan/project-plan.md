@@ -4,6 +4,8 @@ This plan breaks the v1 system described in the [architecture document](../arch/
 
 Tickets are grouped into milestones and ordered by dependency: each ticket only depends on tickets in the same or earlier milestones. Dependencies are listed explicitly where they exist.
 
+To mirror these tickets as GitHub issues (one issue per ticket, labelled `milestone-N`), run [`scripts/create-issues.sh`](../../scripts/create-issues.sh) with an authenticated [GitHub CLI](https://cli.github.com). The script is idempotent — re-running it skips tickets that already have an issue.
+
 ## Milestone 0 — Repository scaffolding
 
 ### DAV-1: Create Maven parent POM
