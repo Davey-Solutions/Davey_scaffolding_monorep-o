@@ -19,7 +19,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -70,7 +69,7 @@ class JobControllerTest {
     void listJobs_returnsAllJobs() throws Exception {
         Job firstJob = buildSavedJob("ACME Ltd", "1 High Street");
         Job secondJob = buildSavedJob("Beta Ltd", "2 Low Street");
-        when(jobRepository.findAll()).thenReturn(List.of(firstJob, secondJob));
+        when(jobRepository.findAllByFilters(null, null)).thenReturn(List.of(firstJob, secondJob));
 
         mockMvc.perform(get("/api/v1/jobs"))
                 .andExpect(status().isOk())
@@ -79,40 +78,40 @@ class JobControllerTest {
                 .andExpect(jsonPath("$[0].siteAddress").value("1 High Street"))
                 .andExpect(jsonPath("$[1].customerName").value("Beta Ltd"))
                 .andExpect(jsonPath("$[1].siteAddress").value("2 Low Street"));
+
+        verify(jobRepository).findAllByFilters(null, null);
     }
 
     @Test
     void listJobs_filterByStatus_returnsMatchingJobs() throws Exception {
         Job job = buildSavedJob("ACME Ltd", "1 High Street");
-        when(jobRepository.findByStatus(JobStatus.COMPLETED)).thenReturn(List.of(job));
+        when(jobRepository.findAllByFilters(JobStatus.COMPLETED, null)).thenReturn(List.of(job));
 
         mockMvc.perform(get("/api/v1/jobs").param("status", "COMPLETED"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].customerName").value("ACME Ltd"));
 
-        verify(jobRepository).findByStatus(JobStatus.COMPLETED);
-        verify(jobRepository, never()).findAll();
+        verify(jobRepository).findAllByFilters(JobStatus.COMPLETED, null);
     }
 
     @Test
     void listJobs_filterByPaid_returnsMatchingJobs() throws Exception {
         Job job = buildSavedJob("Paid Co", "3 Main Road");
-        when(jobRepository.findByPaid(true)).thenReturn(List.of(job));
+        when(jobRepository.findAllByFilters(null, true)).thenReturn(List.of(job));
 
         mockMvc.perform(get("/api/v1/jobs").param("paid", "true"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].customerName").value("Paid Co"));
 
-        verify(jobRepository).findByPaid(true);
-        verify(jobRepository, never()).findAll();
+        verify(jobRepository).findAllByFilters(null, true);
     }
 
     @Test
     void listJobs_filterByStatusAndPaid_returnsMatchingJobs() throws Exception {
         Job job = buildSavedJob("Done & Paid", "4 Side Lane");
-        when(jobRepository.findByStatusAndPaid(JobStatus.COMPLETED, true)).thenReturn(List.of(job));
+        when(jobRepository.findAllByFilters(JobStatus.COMPLETED, true)).thenReturn(List.of(job));
 
         mockMvc.perform(get("/api/v1/jobs")
                         .param("status", "COMPLETED")
@@ -121,10 +120,7 @@ class JobControllerTest {
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].customerName").value("Done & Paid"));
 
-        verify(jobRepository).findByStatusAndPaid(JobStatus.COMPLETED, true);
-        verify(jobRepository, never()).findByStatus(eq(JobStatus.COMPLETED));
-        verify(jobRepository, never()).findByPaid(true);
-        verify(jobRepository, never()).findAll();
+        verify(jobRepository).findAllByFilters(JobStatus.COMPLETED, true);
     }
 
     @Test

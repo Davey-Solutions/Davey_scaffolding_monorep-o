@@ -35,16 +35,7 @@ public class JobController {
     @GetMapping
     public List<Job> listJobs(@RequestParam(value = "status", required = false) JobStatus status,
                               @RequestParam(value = "paid", required = false) Boolean paid) {
-        if (status != null && paid != null) {
-            return jobRepository.findByStatusAndPaid(status, paid);
-        }
-        if (status != null) {
-            return jobRepository.findByStatus(status);
-        }
-        if (paid != null) {
-            return jobRepository.findByPaid(paid);
-        }
-        return jobRepository.findAll();
+        return jobRepository.findAllByFilters(status, paid);
     }
 
     /**

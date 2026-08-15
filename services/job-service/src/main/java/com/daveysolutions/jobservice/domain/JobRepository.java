@@ -1,6 +1,8 @@
 package com.daveysolutions.jobservice.domain;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.UUID;
@@ -14,27 +16,17 @@ import java.util.UUID;
 public interface JobRepository extends JpaRepository<Job, UUID> {
 
     /**
-     * Returns jobs matching the supplied status.
+     * Returns jobs filtered by optional status and paid values.
      *
-     * @param status job lifecycle status
-     * @return jobs with the supplied status
+     * @param status optional job lifecycle status filter
+     * @param paid   optional payment state filter
+     * @return jobs matching all supplied filters
      */
-    List<Job> findByStatus(JobStatus status);
-
-    /**
-     * Returns jobs matching the supplied paid flag.
-     *
-     * @param paid payment state
-     * @return jobs with the supplied payment state
-     */
-    List<Job> findByPaid(boolean paid);
-
-    /**
-     * Returns jobs matching both status and paid flag.
-     *
-     * @param status job lifecycle status
-     * @param paid   payment state
-     * @return jobs matching both filters
-     */
-    List<Job> findByStatusAndPaid(JobStatus status, boolean paid);
+    @Query("""
+            select j
+            from Job j
+            where (:status is null or j.status = :status)
+              and (:paid is null or j.paid = :paid)
+            """)
+    List<Job> findAllByFilters(@Param("status") JobStatus status, @Param("paid") Boolean paid);
 }
