@@ -24,4 +24,8 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <modules>
+        <module>services/job-service</module>
+    </modules>
 </project>
