@@ -247,7 +247,7 @@ A separate, language-neutral **Python** suite talks HTTP to **running** containe
 - **What gets covered per service**:
   - **job-service**: job CRUD, status/paid transitions, validation errors (400s), filtering (`?status=COMPLETED&paid=false`), Flyway-migrated schema behaving correctly against real Postgres.
   - **auth-service**: login issues a JWT with the expected claims/expiry; wrong credentials rejected; refresh flow works.
-  - **gateway**: routing rules forward to configured targets; requests without/with an invalid JWT are rejected (401); health endpoint.
+  - **gateway**: routing rules forward to configured targets; requests without/with an invalid JWT are rejected (401); the health endpoint reports healthy (200).
 - **Why per service**: failures point directly at one service; suites run in parallel in CI; a service can be changed and re-verified without starting the whole stack.
 
 **Whole-system IT suite** — the full stack as the frontend sees it:
