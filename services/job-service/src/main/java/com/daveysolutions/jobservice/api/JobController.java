@@ -3,6 +3,7 @@ package com.daveysolutions.jobservice.api;
 import com.daveysolutions.jobservice.domain.Job;
 import com.daveysolutions.jobservice.domain.JobRepository;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,20 +12,13 @@ import org.springframework.web.bind.annotation.*;
  *
  * <p>Exposes endpoints under {@code /api/v1/jobs}.
  */
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/v1/jobs")
 public class JobController {
 
+    /** Repository used to persist job entities. */
     private final JobRepository jobRepository;
-
-    /**
-     * Constructs a new {@code JobController} with the given repository.
-     *
-     * @param jobRepository the repository used to persist jobs
-     */
-    public JobController(JobRepository jobRepository) {
-        this.jobRepository = jobRepository;
-    }
 
     /**
      * Creates a new job from the supplied request body.
@@ -40,9 +34,6 @@ public class JobController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Job createJob(@Valid @RequestBody CreateJobRequest request) {
-        Job job = new Job();
-        job.setCustomerName(request.customerName());
-        job.setSiteAddress(request.siteAddress());
-        return jobRepository.save(job);
+        return jobRepository.save(new Job(request));
     }
 }

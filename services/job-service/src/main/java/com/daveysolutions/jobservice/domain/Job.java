@@ -1,9 +1,11 @@
 package com.daveysolutions.jobservice.domain;
 
+import com.daveysolutions.jobservice.api.CreateJobRequest;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.AccessLevel;
 
@@ -24,6 +26,7 @@ import java.util.UUID;
  */
 @Getter
 @Setter
+@NoArgsConstructor
 @Entity
 @Table(name = "jobs")
 public class Job {
@@ -86,6 +89,16 @@ public class Job {
     @NotNull
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    /**
+     * Constructs a new {@code Job} pre-populated from the given creation request.
+     *
+     * @param request the validated creation request containing required fields
+     */
+    public Job(CreateJobRequest request) {
+        this.customerName = request.customerName();
+        this.siteAddress = request.siteAddress();
+    }
 
     /**
      * Sets {@link #createdAt} and {@link #updatedAt} to the current instant

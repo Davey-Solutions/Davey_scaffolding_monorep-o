@@ -2,7 +2,6 @@ package com.daveysolutions.jobservice.api;
 
 import com.daveysolutions.jobservice.domain.Job;
 import com.daveysolutions.jobservice.domain.JobRepository;
-import com.daveysolutions.jobservice.domain.JobStatus;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -41,10 +40,7 @@ class JobControllerTest {
 
     /** Builds a minimal persisted {@link Job} stub for mock returns. */
     private Job buildSavedJob(String customerName, String siteAddress) {
-        Job job = new Job();
-        job.setCustomerName(customerName);
-        job.setSiteAddress(siteAddress);
-        job.setStatus(JobStatus.PENDING);
+        Job job = new Job(new CreateJobRequest(customerName, siteAddress));
         // simulate prePersist side-effects
         try {
             var idField = Job.class.getDeclaredField("id");
