@@ -12,13 +12,16 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
@@ -131,5 +134,76 @@ class JobControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateJob_validRequest_returns200AndBody() throws Exception {
+        UUID id = UUID.randomUUID();
+        Job existing = buildSavedJob("Old Customer", "Old Address");
+        Job updated = buildSavedJob("New Customer", "New Address");
+        try {
+            var idField = Job.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(existing, id);
+            idField.set(updated, id);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        when(jobRepository.findById(id)).thenReturn(Optional.of(existing));
+        when(jobRepository.save(any(Job.class))).thenReturn(updated);
+
+        String body = objectMapper.writeValueAsString(new UpdateJobRequest("New Customer", "New Address"));
+
+        mockMvc.perform(put("/api/v1/jobs/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id.toString()))
+                .andExpect(jsonPath("$.customerName").value("New Customer"))
+                .andExpect(jsonPath("$.siteAddress").value("New Address"));
+
+        ArgumentCaptor<Job> captor = ArgumentCaptor.forClass(Job.class);
+        verify(jobRepository).save(captor.capture());
+        assertThat(captor.getValue().getId()).isEqualTo(id);
+        assertThat(captor.getValue().getCustomerName()).isEqualTo("New Customer");
+        assertThat(captor.getValue().getSiteAddress()).isEqualTo("New Address");
+    }
+
+    @Test
+    void updateJob_missingCustomerName_returns400() throws Exception {
+        UUID id = UUID.randomUUID();
+        String body = "{\"siteAddress\":\"1 High Street\"}";
+
+        mockMvc.perform(put("/api/v1/jobs/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateJob_blankSiteAddress_returns400() throws Exception {
+        UUID id = UUID.randomUUID();
+        String body = objectMapper.writeValueAsString(new UpdateJobRequest("ACME Ltd", "   "));
+
+        mockMvc.perform(put("/api/v1/jobs/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updateJob_nonExistentId_returns404() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(jobRepository.findById(id)).thenReturn(Optional.empty());
+
+        String body = objectMapper.writeValueAsString(new UpdateJobRequest("ACME Ltd", "1 High Street"));
+
+        mockMvc.perform(put("/api/v1/jobs/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isNotFound());
+
+        verify(jobRepository, never()).save(any(Job.class));
     }
 }
