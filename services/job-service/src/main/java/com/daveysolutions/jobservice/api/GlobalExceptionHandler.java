@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
  * Global exception handler for the job-service REST API.
  *
  * <p>Converts Bean Validation failures into {@code 400 Bad Request} responses
+ * and missing-resource lookups into {@code 404 Not Found} responses, both
  * using the RFC 7807 {@link ProblemDetail} format.
  */
 @RestControllerAdvice
@@ -32,9 +33,7 @@ public class GlobalExceptionHandler {
                 .map(fe -> fe.getField() + ": " + fe.getDefaultMessage())
                 .collect(Collectors.joining(", "));
 
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
-        problem.setTitle("Validation failed");
-        return problem;
+        return problemDetail(HttpStatus.BAD_REQUEST, "Validation failed", detail);
     }
 
     /**
@@ -47,8 +46,20 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(JobNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ProblemDetail handleJobNotFound(JobNotFoundException ex) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
-        problem.setTitle("Job not found");
+        return problemDetail(HttpStatus.NOT_FOUND, "Job not found", ex.getMessage());
+    }
+
+    /**
+     * Builds a {@link ProblemDetail} with the given status, title, and detail.
+     *
+     * @param status the HTTP status
+     * @param title  the RFC 7807 problem title
+     * @param detail the RFC 7807 problem detail
+     * @return a fully populated {@link ProblemDetail}
+     */
+    private static ProblemDetail problemDetail(HttpStatus status, String title, String detail) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail);
+        problem.setTitle(title);
         return problem;
     }
 }
