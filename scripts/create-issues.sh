@@ -14,16 +14,26 @@ set -euo pipefail
 REPO="${REPO:-Davey-Solutions/Davey_scaffolding_monorep-o}"
 PLAN="$(dirname "$0")/../docs/plan/project-plan.md"
 DRY_RUN="${1:-}"
+if [ -n "$DRY_RUN" ] && [ "$DRY_RUN" != "--dry-run" ]; then
+  echo "Unknown argument: $DRY_RUN (only --dry-run is supported)" >&2
+  exit 1
+fi
 
 command -v gh >/dev/null || { echo "gh CLI is required: https://cli.github.com" >&2; exit 1; }
 [ -f "$PLAN" ] || { echo "Plan not found: $PLAN" >&2; exit 1; }
 
 existing_titles="$(gh issue list --repo "$REPO" --state all --limit 500 --json title --jq '.[].title' 2>/dev/null || true)"
 
+ensured_labels=""
+
 ensure_label() {
   local label="$1"
   if [ "$DRY_RUN" = "--dry-run" ]; then return; fi
+  case " $ensured_labels " in
+    *" $label "*) return ;;
+  esac
   gh label create "$label" --repo "$REPO" --color BFD4F2 --force >/dev/null
+  ensured_labels="$ensured_labels $label"
 }
 
 create_issue() {
