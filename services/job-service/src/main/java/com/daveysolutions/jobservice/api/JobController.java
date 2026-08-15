@@ -77,7 +77,7 @@ public class JobController {
      * @return the updated {@link Job}
      */
     @PutMapping("/{id}")
-    public Job updateJob(@PathVariable UUID id, @Valid @RequestBody UpdateJobRequest request) {
+    public Job updateJob(@PathVariable("id") UUID id, @Valid @RequestBody UpdateJobRequest request) {
         Job job = jobRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Job not found"));
         job.update(request);
