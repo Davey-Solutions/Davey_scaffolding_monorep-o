@@ -36,4 +36,19 @@ public class GlobalExceptionHandler {
         problem.setTitle("Validation failed");
         return problem;
     }
+
+    /**
+     * Handles {@link JobNotFoundException} thrown when the requested job
+     * does not exist and returns a {@code 404 Not Found} response.
+     *
+     * @param ex the exception raised by the controller
+     * @return a {@link ProblemDetail} describing the missing resource
+     */
+    @ExceptionHandler(JobNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ProblemDetail handleJobNotFound(JobNotFoundException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        problem.setTitle("Job not found");
+        return problem;
+    }
 }

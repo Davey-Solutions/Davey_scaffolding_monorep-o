@@ -18,6 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -131,5 +132,25 @@ class JobControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void deleteJob_existingId_returns204() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(jobRepository.existsById(id)).thenReturn(true);
+
+        mockMvc.perform(delete("/api/v1/jobs/" + id))
+                .andExpect(status().isNoContent());
+
+        verify(jobRepository).deleteById(id);
+    }
+
+    @Test
+    void deleteJob_nonExistingId_returns404() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(jobRepository.existsById(id)).thenReturn(false);
+
+        mockMvc.perform(delete("/api/v1/jobs/" + id))
+                .andExpect(status().isNotFound());
     }
 }
