@@ -12,6 +12,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -21,6 +22,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -60,6 +62,42 @@ class JobControllerTest {
             throw new RuntimeException(e);
         }
         return job;
+    }
+
+    @Test
+    void listJobs_returnsAllJobs() throws Exception {
+        Job firstJob = buildSavedJob("ACME Ltd", "1 High Street");
+        Job secondJob = buildSavedJob("Beta Ltd", "2 Low Street");
+        when(jobRepository.findAll()).thenReturn(List.of(firstJob, secondJob));
+
+        mockMvc.perform(get("/api/v1/jobs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].customerName").value("ACME Ltd"))
+                .andExpect(jsonPath("$[0].siteAddress").value("1 High Street"))
+                .andExpect(jsonPath("$[1].customerName").value("Beta Ltd"))
+                .andExpect(jsonPath("$[1].siteAddress").value("2 Low Street"));
+    }
+
+    @Test
+    void getJob_existingId_returnsJob() throws Exception {
+        Job saved = buildSavedJob("ACME Ltd", "1 High Street");
+        when(jobRepository.findById(saved.getId())).thenReturn(Optional.of(saved));
+
+        mockMvc.perform(get("/api/v1/jobs/{id}", saved.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(saved.getId().toString()))
+                .andExpect(jsonPath("$.customerName").value("ACME Ltd"))
+                .andExpect(jsonPath("$.siteAddress").value("1 High Street"));
+    }
+
+    @Test
+    void getJob_missingId_returns404() throws Exception {
+        UUID missingId = UUID.randomUUID();
+        when(jobRepository.findById(missingId)).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/v1/jobs/{id}", missingId))
+                .andExpect(status().isNotFound());
     }
 
     @Test
