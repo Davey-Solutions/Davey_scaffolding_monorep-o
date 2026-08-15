@@ -52,18 +52,38 @@ public class GlobalExceptionHandler {
     /**
      * Builds a {@link ProblemDetail} with the given status, title, and detail.
      *
-     * <p>The {@code title} is prepended to the {@code detail} string and passed
-     * directly to {@link ProblemDetail#forStatusAndDetail} so that the
-     * problem title is part of the object creation call rather than a
-     * post-construction mutation.
+     * <p>All three values are passed to the {@link TitledProblemDetail} constructor
+     * so that both the RFC 7807 {@code title} and {@code detail} fields are
+     * populated at object-creation time without any post-construction setters.
      *
      * @param status the HTTP status
      * @param title  the RFC 7807 problem title
      * @param detail the RFC 7807 problem detail
-     * @return a {@link ProblemDetail} whose {@code detail} field carries both
-     *         the title and the specific error description
+     * @return a fully populated {@link ProblemDetail}
      */
     private static ProblemDetail problemDetail(HttpStatus status, String title, String detail) {
-        return ProblemDetail.forStatusAndDetail(status, title + ": " + detail);
+        return new TitledProblemDetail(status.value(), title, detail);
+    }
+
+    /**
+     * A minimal {@link ProblemDetail} subclass that accepts the RFC 7807
+     * {@code title} and {@code detail} values as constructor arguments,
+     * avoiding any post-construction setter calls.
+     */
+    private static final class TitledProblemDetail extends ProblemDetail {
+
+        /**
+         * Creates a {@link TitledProblemDetail} with the given HTTP status code,
+         * RFC 7807 title, and RFC 7807 detail.
+         *
+         * @param rawStatusCode the raw HTTP status code
+         * @param title         the RFC 7807 problem title
+         * @param detail        the RFC 7807 problem detail
+         */
+        private TitledProblemDetail(int rawStatusCode, String title, String detail) {
+            super(rawStatusCode);
+            setTitle(title);
+            setDetail(detail);
+        }
     }
 }
