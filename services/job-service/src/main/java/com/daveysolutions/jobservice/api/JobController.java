@@ -2,6 +2,7 @@ package com.daveysolutions.jobservice.api;
 
 import com.daveysolutions.jobservice.domain.Job;
 import com.daveysolutions.jobservice.domain.JobRepository;
+import com.daveysolutions.jobservice.domain.JobStatus;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -25,12 +26,24 @@ public class JobController {
     private final JobRepository jobRepository;
 
     /**
-     * Returns every persisted job in insertion order defined by the repository.
+     * Returns persisted jobs, optionally filtered by status and payment state.
      *
-     * @return the complete list of persisted jobs
+     * @param status optional status filter
+     * @param paid   optional paid filter
+     * @return the matching list of persisted jobs
      */
     @GetMapping
-    public List<Job> listJobs() {
+    public List<Job> listJobs(@RequestParam(value = "status", required = false) JobStatus status,
+                              @RequestParam(value = "paid", required = false) Boolean paid) {
+        if (status != null && paid != null) {
+            return jobRepository.findByStatusAndPaid(status, paid);
+        }
+        if (status != null) {
+            return jobRepository.findByStatus(status);
+        }
+        if (paid != null) {
+            return jobRepository.findByPaid(paid);
+        }
         return jobRepository.findAll();
     }
 
