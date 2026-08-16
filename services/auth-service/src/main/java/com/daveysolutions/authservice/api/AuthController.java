@@ -3,7 +3,7 @@ package com.daveysolutions.authservice.api;
 import com.daveysolutions.authservice.domain.User;
 import com.daveysolutions.authservice.domain.UserRepository;
 import com.daveysolutions.authservice.jwt.JwtService;
-import com.daveysolutions.authservice.jwt.JwtService.TokenPair;
+import com.daveysolutions.authservice.jwt.TokenPair;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
