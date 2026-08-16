@@ -37,14 +37,25 @@ public class JwtService {
     public String generateToken(String subject, String role) {
         Instant now = Instant.now();
         Instant expiry = now.plusMillis(jwtProperties.getExpirationMs());
-        SecretKey key = signingKey();
+        return buildJwt(subject, role, now, expiry);
+    }
 
+    /**
+     * Constructs and signs a compact JWT string.
+     *
+     * @param subject the subject claim (email)
+     * @param role    the role claim value
+     * @param issuedAt  issued-at timestamp
+     * @param expiry  expiry timestamp
+     * @return compact, URL-safe JWT string
+     */
+    private String buildJwt(String subject, String role, Instant issuedAt, Instant expiry) {
         return Jwts.builder()
                 .subject(subject)
                 .claim("role", role)
-                .issuedAt(Date.from(now))
+                .issuedAt(Date.from(issuedAt))
                 .expiration(Date.from(expiry))
-                .signWith(key, Jwts.SIG.HS256)
+                .signWith(signingKey(), Jwts.SIG.HS256)
                 .compact();
     }
 
