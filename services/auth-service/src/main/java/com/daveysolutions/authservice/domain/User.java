@@ -13,7 +13,6 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.time.Instant;
 import java.util.Locale;
@@ -23,8 +22,7 @@ import java.util.UUID;
  * JPA entity representing a user account.
  */
 @Getter
-@Setter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @Table(name = "users")
 public class User {
@@ -45,23 +43,37 @@ public class User {
     /** Authorization role assigned to this user. */
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 50)
-    private UserRole role = UserRole.OWNER;
+    private UserRole role;
 
     /** Timestamp when the account was created. */
-    @Setter(AccessLevel.NONE)
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
     /** Timestamp when the account was last updated. */
-    @Setter(AccessLevel.NONE)
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    /**
+     * Creates a user account with normalized email and assigned role.
+     *
+     * @param email user email to assign
+     * @param passwordHash BCrypt hash of the password
+     * @param role authorization role assigned to the user
+     */
+    public User(String email, String passwordHash, UserRole role) {
+        this.email = normalizeEmail(email);
+        this.passwordHash = passwordHash;
+        this.role = role;
+    }
 
     /**
      * Sets creation and update timestamps before first persistence.
      */
     @PrePersist
     void prePersist() {
+        if (role == null) {
+            role = UserRole.OWNER;
+        }
         Instant now = Instant.now();
         createdAt = now;
         updatedAt = now;
@@ -76,21 +88,15 @@ public class User {
     }
 
     /**
-     * Sets the user email using normalized lowercase/trimmed format.
-     *
-     * @param email user email to assign
-     */
-    public void setEmail(String email) {
-        this.email = normalizeEmail(email);
-    }
-
-    /**
      * Normalizes an email address for consistent storage and lookup.
      *
      * @param email email value to normalize
      * @return normalized email, or {@code null} when input is null
      */
     public static String normalizeEmail(String email) {
-        return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
+        if (email == null) {
+            return null;
+        }
+        return email.trim().toLowerCase(Locale.ROOT);
     }
 }

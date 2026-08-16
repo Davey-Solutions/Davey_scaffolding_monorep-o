@@ -43,10 +43,11 @@ class UserRepositoryTest {
 
     @Test
     void saveAndFindUserByEmail() {
-        User user = new User();
-        user.setEmail("owner@example.com");
-        user.setPasswordHash("$2a$10$7EqJtq98hPqEX7fNZaFWoOHi0Jx.8fQfK7A/WDf4Byn4G7gVqP8mW");
-        user.setRole(UserRole.OWNER);
+        User user = new User(
+                "owner@example.com",
+                "$2a$10$7EqJtq98hPqEX7fNZaFWoOHi0Jx.8fQfK7A/WDf4Byn4G7gVqP8mW",
+                UserRole.OWNER
+        );
 
         User saved = userRepository.save(user);
 

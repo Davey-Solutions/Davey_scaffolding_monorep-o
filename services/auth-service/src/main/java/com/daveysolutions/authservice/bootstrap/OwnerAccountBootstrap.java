@@ -34,20 +34,32 @@ public class OwnerAccountBootstrap implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         String ownerEmail = System.getenv(OWNER_EMAIL_ENV);
         String ownerPassword = System.getenv(OWNER_PASSWORD_ENV);
+        String normalizedEmail = resolveBootstrapEmail(ownerEmail, ownerPassword);
 
-        if (!StringUtils.hasText(ownerEmail) || !StringUtils.hasText(ownerPassword)) {
+        if (!StringUtils.hasText(normalizedEmail)) {
             return;
+        }
+
+        User owner = new User(normalizedEmail, passwordEncoder.encode(ownerPassword), UserRole.OWNER);
+        userRepository.save(owner);
+    }
+
+    /**
+     * Resolves the normalized owner email when bootstrap preconditions are met.
+     *
+     * @param ownerEmail owner email from environment
+     * @param ownerPassword owner password from environment
+     * @return normalized owner email when bootstrap should run; otherwise {@code null}
+     */
+    private String resolveBootstrapEmail(String ownerEmail, String ownerPassword) {
+        if (!StringUtils.hasText(ownerEmail) || !StringUtils.hasText(ownerPassword)) {
+            return null;
         }
 
         String normalizedEmail = User.normalizeEmail(ownerEmail);
         if (userRepository.findByEmail(normalizedEmail).isPresent()) {
-            return;
+            return null;
         }
-
-        User owner = new User();
-        owner.setEmail(normalizedEmail);
-        owner.setPasswordHash(passwordEncoder.encode(ownerPassword));
-        owner.setRole(UserRole.OWNER);
-        userRepository.save(owner);
+        return normalizedEmail;
     }
 }
