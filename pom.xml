@@ -28,5 +28,6 @@
     <modules>
         <module>services/auth-service</module>
         <module>services/job-service</module>
+        <module>gateway</module>
     </modules>
 </project>
