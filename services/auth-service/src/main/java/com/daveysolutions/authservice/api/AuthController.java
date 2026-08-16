@@ -3,7 +3,6 @@ package com.daveysolutions.authservice.api;
 import com.daveysolutions.authservice.domain.User;
 import com.daveysolutions.authservice.domain.UserRepository;
 import com.daveysolutions.authservice.jwt.JwtService;
-import com.daveysolutions.authservice.jwt.TokenPair;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -39,10 +38,7 @@ public class AuthController {
 
         return userRepository.findByEmail(normalizedEmail)
                 .filter(user -> passwordEncoder.matches(request.getPassword(), user.getPasswordHash()))
-                .map(user -> {
-                        TokenPair pair = jwtService.generateTokenPair(user);
-                        return new LoginResponse(pair.accessToken(), pair.refreshToken());
-                })
+                .map(user -> jwtService.generateTokenPair(user))
                 .orElseThrow(UnauthorizedException::new);
     }
 

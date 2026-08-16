@@ -1,5 +1,6 @@
 package com.daveysolutions.authservice.jwt;
 
+import com.daveysolutions.authservice.api.LoginResponse;
 import com.daveysolutions.authservice.api.UnauthorizedException;
 import com.daveysolutions.authservice.domain.User;
 import io.jsonwebtoken.Claims;
@@ -31,10 +32,10 @@ public class JwtService {
      * Generates a signed access token and a signed refresh token for the given user.
      *
      * @param user the authenticated user
-     * @return a {@link TokenPair} containing both tokens
+     * @return a {@link LoginResponse} containing both tokens
      */
-    public TokenPair generateTokenPair(User user) {
-        return new TokenPair(generateAccessToken(user), generateRefreshToken(user));
+    public LoginResponse generateTokenPair(User user) {
+        return new LoginResponse(generateAccessToken(user), generateRefreshToken(user));
     }
 
     /**
@@ -75,16 +76,6 @@ public class JwtService {
     }
 
     /**
-     * Returns the {@link SecretKey} derived from the configured secret.
-     *
-     * @return HMAC-SHA256 secret key
-     */
-    public SecretKey signingKey() {
-        byte[] keyBytes = jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8);
-        return Keys.hmacShaKeyFor(keyBytes);
-    }
-
-    /**
      * Generates a signed JWT refresh token for the given user.
      *
      * <p>The token contains {@code sub}, {@code type} ({@code "refresh"}), {@code iat},
@@ -103,6 +94,16 @@ public class JwtService {
                 .expiration(Date.from(expiry))
                 .signWith(signingKey(), Jwts.SIG.HS256)
                 .compact();
+    }
+
+    /**
+     * Returns the {@link SecretKey} derived from the configured secret.
+     *
+     * @return HMAC-SHA256 secret key
+     */
+    public SecretKey signingKey() {
+        byte[] keyBytes = jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8);
+        return Keys.hmacShaKeyFor(keyBytes);
     }
 
     /**
