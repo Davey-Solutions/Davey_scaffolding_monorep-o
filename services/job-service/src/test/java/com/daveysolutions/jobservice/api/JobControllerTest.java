@@ -2,6 +2,7 @@ package com.daveysolutions.jobservice.api;
 
 import com.daveysolutions.jobservice.domain.Job;
 import com.daveysolutions.jobservice.domain.JobRepository;
+import com.daveysolutions.jobservice.domain.JobStatus;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -69,7 +70,7 @@ class JobControllerTest {
     void listJobs_returnsAllJobs() throws Exception {
         Job firstJob = buildSavedJob("ACME Ltd", "1 High Street");
         Job secondJob = buildSavedJob("Beta Ltd", "2 Low Street");
-        when(jobRepository.findAll()).thenReturn(List.of(firstJob, secondJob));
+        when(jobRepository.findAllByFilters(null, null)).thenReturn(List.of(firstJob, secondJob));
 
         mockMvc.perform(get("/api/v1/jobs"))
                 .andExpect(status().isOk())
@@ -78,6 +79,57 @@ class JobControllerTest {
                 .andExpect(jsonPath("$[0].siteAddress").value("1 High Street"))
                 .andExpect(jsonPath("$[1].customerName").value("Beta Ltd"))
                 .andExpect(jsonPath("$[1].siteAddress").value("2 Low Street"));
+
+        verify(jobRepository).findAllByFilters(null, null);
+    }
+
+    @Test
+    void listJobs_filterByStatus_returnsMatchingJobs() throws Exception {
+        Job job = buildSavedJob("ACME Ltd", "1 High Street");
+        when(jobRepository.findAllByFilters(JobStatus.COMPLETED, null)).thenReturn(List.of(job));
+
+        mockMvc.perform(get("/api/v1/jobs").param("status", "COMPLETED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].customerName").value("ACME Ltd"));
+
+        verify(jobRepository).findAllByFilters(JobStatus.COMPLETED, null);
+    }
+
+    @Test
+    void listJobs_filterByPaid_returnsMatchingJobs() throws Exception {
+        Job job = buildSavedJob("Paid Co", "3 Main Road");
+        when(jobRepository.findAllByFilters(null, true)).thenReturn(List.of(job));
+
+        mockMvc.perform(get("/api/v1/jobs").param("paid", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].customerName").value("Paid Co"));
+
+        verify(jobRepository).findAllByFilters(null, true);
+    }
+
+    @Test
+    void listJobs_filterByStatusAndPaid_returnsMatchingJobs() throws Exception {
+        Job job = buildSavedJob("Done & Paid", "4 Side Lane");
+        when(jobRepository.findAllByFilters(JobStatus.COMPLETED, true)).thenReturn(List.of(job));
+
+        mockMvc.perform(get("/api/v1/jobs")
+                        .param("status", "COMPLETED")
+                        .param("paid", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].customerName").value("Done & Paid"));
+
+        verify(jobRepository).findAllByFilters(JobStatus.COMPLETED, true);
+    }
+
+    @Test
+    void listJobs_filterByInvalidStatus_returnsBadRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/jobs").param("status", "NOT_A_REAL_STATUS"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(jobRepository);
     }
 
     @Test
