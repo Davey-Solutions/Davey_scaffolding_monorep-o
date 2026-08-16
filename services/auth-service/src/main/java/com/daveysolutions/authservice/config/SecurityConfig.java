@@ -3,11 +3,14 @@ package com.daveysolutions.authservice.config;
 import org.springframework.boot.actuate.autoconfigure.security.servlet.EndpointRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 
 /**
  * Security configuration for the Auth Service.
@@ -18,8 +21,10 @@ public class SecurityConfig {
     /**
      * Configures HTTP security rules.
      *
-     * <p>The actuator health endpoint is intentionally exposed without authentication for container
-     * health checks.
+     * <p>The actuator health endpoint and the login endpoint are intentionally exposed without
+     * authentication. All other requests require authentication. CSRF is disabled because the
+     * service is stateless and issues JWTs. Unauthenticated requests to protected endpoints
+     * receive HTTP 401 rather than a redirect.
      *
      * @param http the mutable Spring Security HTTP configuration
      * @return the built security filter chain
@@ -28,10 +33,14 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(EndpointRequest.to("health")).permitAll()
-                        .anyRequest().authenticated())
-                .httpBasic(Customizer.withDefaults());
+                        .requestMatchers("/api/v1/auth/login").permitAll()
+                        .anyRequest().authenticated());
         return http.build();
     }
 
