@@ -38,7 +38,7 @@ public class AuthController {
 
         return userRepository.findByEmail(normalizedEmail)
                 .filter(user -> passwordEncoder.matches(request.getPassword(), user.getPasswordHash()))
-                .map(user -> new LoginResponse(jwtService.generateToken(user.getEmail(), user.getRole().name())))
+                .map(user -> new LoginResponse(jwtService.generateToken(user)))
                 .orElseThrow(UnauthorizedException::new);
     }
 }

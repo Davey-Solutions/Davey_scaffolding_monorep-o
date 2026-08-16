@@ -1,5 +1,7 @@
 package com.daveysolutions.authservice.jwt;
 
+import com.daveysolutions.authservice.domain.User;
+import com.daveysolutions.authservice.domain.UserRole;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,7 +33,8 @@ class JwtServiceTest {
 
     @Test
     void generatedTokenContainsSubjectAndRoleClaims() {
-        String token = jwtService.generateToken("user@example.com", "OWNER");
+        User user = new User("user@example.com", "hash", UserRole.OWNER);
+        String token = jwtService.generateToken(user);
 
         Claims claims = parseClaims(token);
 
@@ -41,8 +44,9 @@ class JwtServiceTest {
 
     @Test
     void generatedTokenExpiresAfterConfiguredDuration() {
+        User user = new User("user@example.com", "hash", UserRole.OWNER);
         long beforeMs = System.currentTimeMillis();
-        String token = jwtService.generateToken("user@example.com", "OWNER");
+        String token = jwtService.generateToken(user);
         long afterMs = System.currentTimeMillis();
 
         Claims claims = parseClaims(token);
@@ -61,7 +65,8 @@ class JwtServiceTest {
 
     @Test
     void generatedTokenIsVerifiableWithSameKey() {
-        String token = jwtService.generateToken("user@example.com", "OWNER");
+        User user = new User("user@example.com", "hash", UserRole.OWNER);
+        String token = jwtService.generateToken(user);
 
         // Parsing with the same key must not throw
         Claims claims = parseClaims(token);

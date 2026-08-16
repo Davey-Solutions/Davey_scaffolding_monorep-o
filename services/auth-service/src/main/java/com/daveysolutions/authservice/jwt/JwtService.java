@@ -1,5 +1,6 @@
 package com.daveysolutions.authservice.jwt;
 
+import com.daveysolutions.authservice.domain.User;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +21,7 @@ public class JwtService {
     private final JwtProperties jwtProperties;
 
     /**
-     * Generates a signed JWT access token for the given subject.
+     * Generates a signed JWT access token for the given user.
      *
      * <p>The token contains:
      * <ul>
@@ -30,14 +31,13 @@ public class JwtService {
      *   <li>{@code exp} — expiry timestamp (iat + {@link JwtProperties#getExpirationMs()})</li>
      * </ul>
      *
-     * @param subject the subject claim (email)
-     * @param role    the role claim value
+     * @param user the authenticated user whose claims populate the token
      * @return compact, URL-safe JWT string
      */
-    public String generateToken(String subject, String role) {
+    public String generateToken(User user) {
         Instant now = Instant.now();
         Instant expiry = now.plusMillis(jwtProperties.getExpirationMs());
-        return buildJwt(subject, role, now, expiry);
+        return buildJwt(user.getEmail(), user.getRole().name(), now, expiry);
     }
 
     /**
