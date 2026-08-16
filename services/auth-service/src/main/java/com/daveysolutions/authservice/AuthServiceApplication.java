@@ -2,6 +2,9 @@ package com.daveysolutions.authservice;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+
+import com.daveysolutions.authservice.jwt.JwtProperties;
 
 /**
  * Entry point for the Auth Service Spring Boot application.
@@ -10,6 +13,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * platform.
  */
 @SpringBootApplication
+@EnableConfigurationProperties(JwtProperties.class)
 public class AuthServiceApplication {
 
     /**
