@@ -5,12 +5,12 @@ spring:
     gateway:
       routes:
         - id: job-service
-          uri: http://job-service:8080
+          uri: ${JOB_SERVICE_URI:http://job-service:8080}
           predicates:
             - Path=/api/v1/jobs/**
 
         - id: auth-service
-          uri: http://auth-service:8080
+          uri: ${AUTH_SERVICE_URI:http://auth-service:8080}
           predicates:
             - Path=/api/v1/auth/**
 
