@@ -22,6 +22,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -248,5 +249,25 @@ class JobControllerTest {
                 .andExpect(status().isNotFound());
 
         verify(jobRepository, never()).save(any(Job.class));
+    }
+
+    @Test
+    void deleteJob_existingId_returns204() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(jobRepository.existsById(id)).thenReturn(true);
+
+        mockMvc.perform(delete("/api/v1/jobs/" + id))
+                .andExpect(status().isNoContent());
+
+        verify(jobRepository).deleteById(id);
+    }
+
+    @Test
+    void deleteJob_nonExistingId_returns404() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(jobRepository.existsById(id)).thenReturn(false);
+
+        mockMvc.perform(delete("/api/v1/jobs/" + id))
+                .andExpect(status().isNotFound());
     }
 }

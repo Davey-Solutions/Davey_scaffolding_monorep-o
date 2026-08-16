@@ -83,4 +83,21 @@ public class JobController {
         job.update(request);
         return jobRepository.save(job);
     }
+
+    /**
+     * Deletes the job with the given identifier.
+     *
+     * <p>Returns {@code 204 No Content} on success.
+     * Returns {@code 404 Not Found} when no job with that {@code id} exists.
+     *
+     * @param id the UUID of the job to delete
+     */
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteJob(@PathVariable("id") UUID id) {
+        if (!jobRepository.existsById(id)) {
+            throw new JobNotFoundException(id);
+        }
+        jobRepository.deleteById(id);
+    }
 }
