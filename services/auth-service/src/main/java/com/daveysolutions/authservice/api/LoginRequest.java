@@ -2,6 +2,7 @@ package com.daveysolutions.authservice.api;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 import lombok.Value;
 
@@ -12,9 +13,12 @@ import lombok.Value;
  * {@code @NoArgsConstructor(force = true)} provides the default constructor required by Jackson
  * for bean-style deserialization; Spring Boot's {@code ParameterNamesModule} allows Jackson to
  * resolve and use the all-args constructor automatically.
+ * {@code @AllArgsConstructor} restores the all-args constructor suppressed by the combination of
+ * {@code @Value} and {@code @NoArgsConstructor}.
  */
 @Value
 @NoArgsConstructor(force = true)
+@AllArgsConstructor
 public class LoginRequest {
 
     /** User's email address. */
