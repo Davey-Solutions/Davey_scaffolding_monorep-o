@@ -14,6 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.Instant;
 import java.util.Date;
@@ -50,18 +51,16 @@ class AuthRefreshControllerTest {
     private static final String EMAIL = "refresh-test@example.com";
     private static final String PASSWORD = "some-password";
 
-    private User testUser;
-
-    /** Seeds a test user and captures the entity before each test. */
+    /** Seeds a test user before each test. */
     @BeforeEach
     void setUp() {
         userRepository.deleteAll();
-        testUser = userRepository.save(new User(EMAIL, passwordEncoder.encode(PASSWORD), UserRole.OWNER));
+        userRepository.save(new User(EMAIL, passwordEncoder.encode(PASSWORD), UserRole.OWNER));
     }
 
     @Test
     void validRefreshTokenReturns200WithNewAccessToken() throws Exception {
-        String refreshToken = jwtService.generateRefreshToken(testUser);
+        String refreshToken = loginAndExtractToken("refreshToken");
 
         mockMvc.perform(post("/api/v1/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -97,7 +96,7 @@ class AuthRefreshControllerTest {
 
     @Test
     void accessTokenUsedAsRefreshTokenReturns401() throws Exception {
-        String accessToken = jwtService.generateToken(testUser);
+        String accessToken = jwtService.generateAccessToken(userRepository.findByEmail(EMAIL).orElseThrow());
 
         mockMvc.perform(post("/api/v1/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -114,5 +113,23 @@ class AuthRefreshControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
                 .andExpect(jsonPath("$.refreshToken").isNotEmpty());
+    }
+
+    /**
+     * Performs a login request and extracts a named token field from the JSON response.
+     *
+     * @param field the JSON field name to extract ({@code "accessToken"} or {@code "refreshToken"})
+     * @return the extracted token string
+     */
+    private String loginAndExtractToken(String field) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                Map.of("email", EMAIL, "password", PASSWORD))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        return objectMapper.readTree(result.getResponse().getContentAsString())
+                .get(field).asText();
     }
 }

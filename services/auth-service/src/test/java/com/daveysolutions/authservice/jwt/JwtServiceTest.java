@@ -32,9 +32,9 @@ class JwtServiceTest {
     }
 
     @Test
-    void generatedTokenContainsSubjectAndRoleClaims() {
+    void generatedAccessTokenContainsSubjectAndRoleClaims() {
         User user = new User("user@example.com", "hash", UserRole.OWNER);
-        String token = jwtService.generateToken(user);
+        String token = jwtService.generateAccessToken(user);
 
         Claims claims = parseClaims(token);
 
@@ -43,10 +43,10 @@ class JwtServiceTest {
     }
 
     @Test
-    void generatedTokenExpiresAfterConfiguredDuration() {
+    void generatedAccessTokenExpiresAfterConfiguredDuration() {
         User user = new User("user@example.com", "hash", UserRole.OWNER);
         long beforeMs = System.currentTimeMillis();
-        String token = jwtService.generateToken(user);
+        String token = jwtService.generateAccessToken(user);
         long afterMs = System.currentTimeMillis();
 
         Claims claims = parseClaims(token);
@@ -64,9 +64,9 @@ class JwtServiceTest {
     }
 
     @Test
-    void generatedTokenIsVerifiableWithSameKey() {
+    void generatedAccessTokenIsVerifiableWithSameKey() {
         User user = new User("user@example.com", "hash", UserRole.OWNER);
-        String token = jwtService.generateToken(user);
+        String token = jwtService.generateAccessToken(user);
 
         // Parsing with the same key must not throw
         Claims claims = parseClaims(token);

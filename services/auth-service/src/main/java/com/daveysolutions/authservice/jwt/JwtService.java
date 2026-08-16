@@ -2,6 +2,7 @@ package com.daveysolutions.authservice.jwt;
 
 import com.daveysolutions.authservice.api.UnauthorizedException;
 import com.daveysolutions.authservice.domain.User;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -27,44 +28,35 @@ public class JwtService {
     private final JwtProperties jwtProperties;
 
     /**
-     * Generates a signed JWT access token for the given user.
+     * Generates a signed access token and a signed refresh token for the given user.
      *
-     * <p>The token contains:
-     * <ul>
-     *   <li>{@code sub} — the user's email address</li>
-     *   <li>{@code role} — the user's role string</li>
-     *   <li>{@code type} — {@code "access"}</li>
-     *   <li>{@code iat} — issued-at timestamp</li>
-     *   <li>{@code exp} — expiry timestamp (iat + {@link JwtProperties#getExpirationMs()})</li>
-     * </ul>
-     *
-     * @param user the authenticated user whose claims populate the token
-     * @return compact, URL-safe JWT string
+     * @param user the authenticated user
+     * @return a {@link TokenPair} containing both tokens
      */
-    public String generateToken(User user) {
-        Instant now = Instant.now();
-        Instant expiry = now.plusMillis(jwtProperties.getExpirationMs());
-        return buildJwt(user.getEmail(), user.getRole().name(), TYPE_ACCESS, now, expiry);
+    public TokenPair generateTokenPair(User user) {
+        return new TokenPair(generateAccessToken(user), generateRefreshToken(user));
     }
 
     /**
-     * Generates a signed JWT refresh token for the given user.
+     * Generates a signed JWT access token for the given user.
      *
-     * <p>The token contains:
-     * <ul>
-     *   <li>{@code sub} — the user's email address</li>
-     *   <li>{@code type} — {@code "refresh"}</li>
-     *   <li>{@code iat} — issued-at timestamp</li>
-     *   <li>{@code exp} — expiry timestamp (iat + {@link JwtProperties#getRefreshExpirationMs()})</li>
-     * </ul>
+     * <p>The token contains {@code sub}, {@code role}, {@code type} ({@code "access"}),
+     * {@code iat}, and {@code exp} (iat + {@link JwtProperties#getExpirationMs()}).
      *
      * @param user the authenticated user
-     * @return compact, URL-safe JWT refresh token string
+     * @return compact, URL-safe JWT access token string
      */
-    public String generateRefreshToken(User user) {
+    public String generateAccessToken(User user) {
         Instant now = Instant.now();
-        Instant expiry = now.plusMillis(jwtProperties.getRefreshExpirationMs());
-        return buildJwt(user.getEmail(), null, TYPE_REFRESH, now, expiry);
+        Instant expiry = now.plusMillis(jwtProperties.getExpirationMs());
+        return Jwts.builder()
+                .subject(user.getEmail())
+                .claim("role", user.getRole().name())
+                .claim(CLAIM_TYPE, TYPE_ACCESS)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(expiry))
+                .signWith(signingKey(), Jwts.SIG.HS256)
+                .compact();
     }
 
     /**
@@ -78,44 +70,8 @@ public class JwtService {
      * @throws UnauthorizedException when the token is invalid, expired, or of the wrong type
      */
     public String extractSubjectFromRefreshToken(String refreshToken) {
-        try {
-            var claims = Jwts.parser()
-                    .verifyWith(signingKey())
-                    .build()
-                    .parseSignedClaims(refreshToken)
-                    .getPayload();
-
-            if (!TYPE_REFRESH.equals(claims.get(CLAIM_TYPE, String.class))) {
-                throw new UnauthorizedException();
-            }
-            return claims.getSubject();
-        } catch (JwtException e) {
-            throw new UnauthorizedException();
-        }
-    }
-
-    /**
-     * Constructs and signs a compact JWT string.
-     *
-     * @param subject  the subject claim (email)
-     * @param role     the role claim value, or {@code null} to omit the claim
-     * @param type     the token type claim value ({@code "access"} or {@code "refresh"})
-     * @param issuedAt issued-at timestamp
-     * @param expiry   expiry timestamp
-     * @return compact, URL-safe JWT string
-     */
-    private String buildJwt(String subject, String role, String type, Instant issuedAt, Instant expiry) {
-        var builder = Jwts.builder()
-                .subject(subject)
-                .claim(CLAIM_TYPE, type);
-        if (role != null) {
-            builder.claim("role", role);
-        }
-        return builder
-                .issuedAt(Date.from(issuedAt))
-                .expiration(Date.from(expiry))
-                .signWith(signingKey(), Jwts.SIG.HS256)
-                .compact();
+        Claims claims = parseAndVerifyClaims(refreshToken);
+        return requireRefreshType(claims);
     }
 
     /**
@@ -127,4 +83,66 @@ public class JwtService {
         byte[] keyBytes = jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);
     }
+
+    /**
+     * Generates a signed JWT refresh token for the given user.
+     *
+     * <p>The token contains {@code sub}, {@code type} ({@code "refresh"}), {@code iat},
+     * and {@code exp} (iat + {@link JwtProperties#getRefreshExpirationMs()}).
+     *
+     * @param user the authenticated user
+     * @return compact, URL-safe JWT refresh token string
+     */
+    private String generateRefreshToken(User user) {
+        Instant now = Instant.now();
+        Instant expiry = now.plusMillis(jwtProperties.getRefreshExpirationMs());
+        return Jwts.builder()
+                .subject(user.getEmail())
+                .claim(CLAIM_TYPE, TYPE_REFRESH)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(expiry))
+                .signWith(signingKey(), Jwts.SIG.HS256)
+                .compact();
+    }
+
+    /**
+     * Parses and cryptographically verifies a compact JWT string.
+     *
+     * @param token the compact JWT string to verify
+     * @return the verified {@link Claims} payload
+     * @throws UnauthorizedException when the token is malformed, tampered with, or expired
+     */
+    private Claims parseAndVerifyClaims(String token) {
+        try {
+            return Jwts.parser()
+                    .verifyWith(signingKey())
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+        } catch (JwtException e) {
+            throw new UnauthorizedException();
+        }
+    }
+
+    /**
+     * Asserts that the {@code type} claim equals {@code "refresh"} and returns the subject.
+     *
+     * @param claims the already-verified JWT payload
+     * @return the subject claim (email address)
+     * @throws UnauthorizedException when the token is not a refresh token
+     */
+    private String requireRefreshType(Claims claims) {
+        if (!TYPE_REFRESH.equals(claims.get(CLAIM_TYPE, String.class))) {
+            throw new UnauthorizedException();
+        }
+        return claims.getSubject();
+    }
+
+    /**
+     * A pair of signed JWT tokens issued together at login.
+     *
+     * @param accessToken  short-lived access token
+     * @param refreshToken long-lived refresh token
+     */
+    public record TokenPair(String accessToken, String refreshToken) {}
 }
