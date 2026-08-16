@@ -107,14 +107,15 @@ public class JwtService {
     private String buildJwt(String subject, String role, String type, Instant issuedAt, Instant expiry) {
         var builder = Jwts.builder()
                 .subject(subject)
-                .claim(CLAIM_TYPE, type)
-                .issuedAt(Date.from(issuedAt))
-                .expiration(Date.from(expiry))
-                .signWith(signingKey(), Jwts.SIG.HS256);
+                .claim(CLAIM_TYPE, type);
         if (role != null) {
             builder.claim("role", role);
         }
-        return builder.compact();
+        return builder
+                .issuedAt(Date.from(issuedAt))
+                .expiration(Date.from(expiry))
+                .signWith(signingKey(), Jwts.SIG.HS256)
+                .compact();
     }
 
     /**
