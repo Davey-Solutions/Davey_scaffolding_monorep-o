@@ -2,27 +2,14 @@ package com.daveysolutions.authservice.api;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import lombok.NoArgsConstructor;
-import lombok.Value;
 
 /**
- * Request body for the login endpoint.
+ * Request body for {@code POST /api/v1/auth/login}.
  *
- * <p>{@code @Value} generates the all-args constructor and makes fields immutable.
- * {@code @NoArgsConstructor(force = true)} provides the default constructor required by Jackson
- * for bean-style deserialization; Spring Boot's {@code ParameterNamesModule} allows Jackson to
- * resolve and use the all-args constructor automatically.
+ * @param email    the user's email address
+ * @param password the user's plaintext password
  */
-@Value
-@NoArgsConstructor(force = true)
-public class LoginRequest {
-
-    /** User's email address. */
-    @NotBlank
-    @Email
-    String email;
-
-    /** User's plain-text password. */
-    @NotBlank
-    String password;
+public record LoginRequest(
+        @NotBlank @Email String email,
+        @NotBlank String password) {
 }
