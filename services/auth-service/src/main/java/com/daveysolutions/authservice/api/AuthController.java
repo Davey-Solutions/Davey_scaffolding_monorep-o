@@ -5,7 +5,6 @@ import com.daveysolutions.authservice.domain.UserRepository;
 import com.daveysolutions.authservice.jwt.JwtService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -27,21 +26,19 @@ public class AuthController {
     /**
      * Validates credentials and returns a signed JWT access token.
      *
-     * <p>Returns HTTP 401 when the email is not found or the password does not match.
+     * <p>Throws {@link UnauthorizedException} (HTTP 401) when the email is not found or the
+     * password does not match.
      *
      * @param request login credentials
-     * @return 200 with {@link LoginResponse} on success, 401 on failure
+     * @return {@link LoginResponse} containing the signed access token
      */
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
         String normalizedEmail = User.normalizeEmail(request.getEmail());
 
         return userRepository.findByEmail(normalizedEmail)
                 .filter(user -> passwordEncoder.matches(request.getPassword(), user.getPasswordHash()))
-                .map(user -> {
-                    String token = jwtService.generateToken(user.getEmail(), user.getRole().name());
-                    return ResponseEntity.ok(new LoginResponse(token));
-                })
-                .orElseGet(() -> ResponseEntity.status(401).build());
+                .map(user -> new LoginResponse(jwtService.generateToken(user.getEmail(), user.getRole().name())))
+                .orElseThrow(UnauthorizedException::new);
     }
 }

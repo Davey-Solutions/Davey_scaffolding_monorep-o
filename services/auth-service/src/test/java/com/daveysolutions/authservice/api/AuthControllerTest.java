@@ -48,49 +48,26 @@ class AuthControllerTest {
 
     @Test
     void loginWithValidCredentialsReturns200WithAccessToken() throws Exception {
-        LoginRequest request = new LoginRequest();
-        setField(request, "email", EMAIL);
-        setField(request, "password", PASSWORD);
-
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(objectMapper.writeValueAsString(new LoginRequest(EMAIL, PASSWORD))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty());
     }
 
     @Test
     void loginWithWrongPasswordReturns401() throws Exception {
-        LoginRequest request = new LoginRequest();
-        setField(request, "email", EMAIL);
-        setField(request, "password", "wrong-password");
-
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(objectMapper.writeValueAsString(new LoginRequest(EMAIL, "wrong-password"))))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     void loginWithUnknownEmailReturns401() throws Exception {
-        LoginRequest request = new LoginRequest();
-        setField(request, "email", "unknown@example.com");
-        setField(request, "password", PASSWORD);
-
         mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(objectMapper.writeValueAsString(new LoginRequest("unknown@example.com", PASSWORD))))
                 .andExpect(status().isUnauthorized());
-    }
-
-    /**
-     * Reflectively sets a field on {@link LoginRequest} since all fields are private and the
-     * class has no public setters (immutable by design in production; we break in tests only).
-     */
-    private static void setField(Object target, String fieldName, String value)
-            throws ReflectiveOperationException {
-        var field = target.getClass().getDeclaredField(fieldName);
-        field.setAccessible(true);
-        field.set(target, value);
     }
 }
