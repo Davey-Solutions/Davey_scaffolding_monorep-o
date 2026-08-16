@@ -16,6 +16,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -63,7 +64,7 @@ public class User {
     public User(String email, String passwordHash, UserRole role) {
         this.email = normalizeEmail(email);
         this.passwordHash = passwordHash;
-        this.role = role;
+        this.role = Objects.requireNonNullElse(role, UserRole.OWNER);
     }
 
     /**
@@ -71,9 +72,6 @@ public class User {
      */
     @PrePersist
     void prePersist() {
-        if (role == null) {
-            role = UserRole.OWNER;
-        }
         Instant now = Instant.now();
         createdAt = now;
         updatedAt = now;
