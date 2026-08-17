@@ -11,6 +11,8 @@
     <properties>
         <java.version>21</java.version>
         <spring-boot.version>3.3.13</spring-boot.version>
+        <jib.base.image>eclipse-temurin:21.0.7_6-jre</jib.base.image>
+        <spring.profiles.active>prod</spring.profiles.active>
     </properties>
 
     <dependencyManagement>
