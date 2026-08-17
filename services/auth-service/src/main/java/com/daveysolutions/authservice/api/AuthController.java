@@ -24,13 +24,13 @@ public class AuthController {
     private final JwtService jwtService;
 
     /**
-     * Validates credentials and returns a signed JWT access token.
+     * Validates credentials and returns signed JWT access and refresh tokens.
      *
      * <p>Throws {@link UnauthorizedException} (HTTP 401) when the email is not found or the
      * password does not match.
      *
      * @param request login credentials
-     * @return {@link LoginResponse} containing the signed access token
+     * @return {@link LoginResponse} containing the signed access and refresh tokens
      */
     @PostMapping("/login")
     public LoginResponse login(@Valid @RequestBody LoginRequest request) {
@@ -38,7 +38,25 @@ public class AuthController {
 
         return userRepository.findByEmail(normalizedEmail)
                 .filter(user -> passwordEncoder.matches(request.getPassword(), user.getPasswordHash()))
-                .map(user -> new LoginResponse(jwtService.generateToken(user)))
+                .map(user -> jwtService.generateTokenPair(user))
+                .orElseThrow(UnauthorizedException::new);
+    }
+
+    /**
+     * Exchanges a valid refresh token for a new JWT access token.
+     *
+     * <p>Throws {@link UnauthorizedException} (HTTP 401) when the refresh token is expired,
+     * invalid, or the user can no longer be found.
+     *
+     * @param request body containing the refresh token
+     * @return {@link RefreshResponse} containing a fresh signed access token
+     */
+    @PostMapping("/refresh")
+    public RefreshResponse refresh(@Valid @RequestBody RefreshRequest request) {
+        String email = jwtService.extractSubjectFromRefreshToken(request.getRefreshToken());
+
+        return userRepository.findByEmail(email)
+                .map(user -> new RefreshResponse(jwtService.generateAccessToken(user)))
                 .orElseThrow(UnauthorizedException::new);
     }
 }
