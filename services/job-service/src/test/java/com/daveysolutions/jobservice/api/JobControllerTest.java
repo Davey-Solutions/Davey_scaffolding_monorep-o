@@ -89,6 +89,8 @@ class JobControllerTest {
         String body = objectMapper.writeValueAsString(
                 new CreateJobRequest("ACME Ltd", "1 High Street"));
 
+        // csrf() is needed so the CSRF filter (active in WebMvcTest) passes through
+        // to the authentication check, which returns 401 for requests without a bearer token.
         mockMvc.perform(post("/api/v1/jobs")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body)

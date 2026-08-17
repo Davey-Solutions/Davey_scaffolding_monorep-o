@@ -34,11 +34,12 @@ public class SecurityConfig {
      * Configures HTTP security rules, requiring a valid JWT for all job endpoints.
      *
      * @param http the mutable Spring Security HTTP configuration
+     * @param jwtDecoder the JWT decoder used to validate bearer tokens
      * @return the built security filter chain
      * @throws Exception when security configuration fails
      */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtDecoder jwtDecoder) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -48,8 +49,7 @@ public class SecurityConfig {
                         .requestMatchers(EndpointRequest.to("health")).permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(jwt -> {
-                        }));
+                        .jwt(jwt -> jwt.decoder(jwtDecoder)));
         return http.build();
     }
 
