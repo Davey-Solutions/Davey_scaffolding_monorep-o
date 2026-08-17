@@ -5,7 +5,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.cloud.gateway.filter.ratelimit.RateLimiter;
 import org.springframework.cloud.gateway.support.AbstractStatefulConfigurable;
-import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
@@ -15,6 +14,7 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Configuration
 class GatewayRateLimitingConfiguration {
@@ -30,11 +30,6 @@ class GatewayRateLimitingConfiguration {
     }
 
     private static String resolveClientAddress(ServerWebExchange exchange) {
-        String forwardedFor = exchange.getRequest().getHeaders().getFirst("X-Forwarded-For");
-        if (StringUtils.hasText(forwardedFor)) {
-            return forwardedFor.split(",")[0].trim();
-        }
-
         InetSocketAddress remoteAddress = exchange.getRequest().getRemoteAddress();
         if (remoteAddress == null) {
             return "anonymous";
@@ -57,6 +52,7 @@ class GatewayRateLimitingConfiguration {
         private final int burstCapacity;
         private final Clock clock;
         private final ConcurrentMap<String, Window> windows = new ConcurrentHashMap<>();
+        private final AtomicLong nextEvictionAt = new AtomicLong();
 
         InMemoryRateLimiter(Duration replenishPeriod, int burstCapacity, Clock clock) {
             super(Config.class);
@@ -68,6 +64,7 @@ class GatewayRateLimitingConfiguration {
         @Override
         public Mono<Response> isAllowed(String routeId, String key) {
             long now = clock.millis();
+            evictExpiredWindowsIfDue(now);
             String compositeKey = routeId + ":" + key;
             Window window = windows.compute(compositeKey, (ignored, existing) -> refreshWindow(existing, now));
             int remaining = Math.max(burstCapacity - window.requestCount(), 0);
@@ -77,12 +74,25 @@ class GatewayRateLimitingConfiguration {
             )));
         }
 
+        private void evictExpiredWindowsIfDue(long now) {
+            long scheduledEviction = nextEvictionAt.get();
+            if (now < scheduledEviction) {
+                return;
+            }
+
+            if (!nextEvictionAt.compareAndSet(scheduledEviction, now + replenishPeriod.toMillis())) {
+                return;
+            }
+
+            windows.entrySet().removeIf(entry -> now - entry.getValue().windowStartedAt() >= replenishPeriod.toMillis());
+        }
+
         private Window refreshWindow(Window existing, long now) {
             if (existing == null || now - existing.windowStartedAt() >= replenishPeriod.toMillis()) {
                 return new Window(now, 1);
             }
 
-            return new Window(existing.windowStartedAt(), existing.requestCount() + 1);
+            return new Window(existing.windowStartedAt(), Math.min(existing.requestCount() + 1, burstCapacity + 1));
         }
 
         static final class Config {

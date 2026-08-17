@@ -15,8 +15,6 @@ import reactor.netty.http.server.HttpServer;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class GatewayApplicationTests {
 
-    private static final String TEST_CLIENT_ADDRESS = "198.51.100.10";
-
     private static final DisposableServer DOWNSTREAM_SERVER = HttpServer.create()
             .host("127.0.0.1")
             .port(0)
@@ -57,14 +55,16 @@ class GatewayApplicationTests {
     void excessRequestsReceiveTooManyRequests() {
         webTestClient.get()
                 .uri("/api/v1/jobs/123")
-                .header("X-Forwarded-For", TEST_CLIENT_ADDRESS)
                 .exchange()
-                .expectStatus().isOk();
+                .expectStatus().isOk()
+                .expectHeader().valueEquals("X-RateLimit-Limit", "1")
+                .expectHeader().valueEquals("X-RateLimit-Remaining", "0");
 
         webTestClient.get()
                 .uri("/api/v1/jobs/123")
-                .header("X-Forwarded-For", TEST_CLIENT_ADDRESS)
                 .exchange()
-                .expectStatus().isEqualTo(429);
+                .expectStatus().isEqualTo(429)
+                .expectHeader().valueEquals("X-RateLimit-Limit", "1")
+                .expectHeader().valueEquals("X-RateLimit-Remaining", "0");
     }
 }
