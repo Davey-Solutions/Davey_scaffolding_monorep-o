@@ -23,6 +23,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -33,6 +35,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * {@link WebMvcTest} slice tests for {@link JobController}.
  *
  * <p>Uses a mocked {@link JobRepository} so no database is required.
+ * Each test that exercises a job endpoint supplies a valid JWT via
+ * {@code with(jwt())}. Tests without a token assert HTTP 401.
  */
 @WebMvcTest(JobController.class)
 class JobControllerTest {
@@ -66,13 +70,62 @@ class JobControllerTest {
         return job;
     }
 
+    // ---- 401 without token tests ----
+
+    @Test
+    void listJobs_withoutToken_returns401() throws Exception {
+        mockMvc.perform(get("/api/v1/jobs"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getJob_withoutToken_returns401() throws Exception {
+        mockMvc.perform(get("/api/v1/jobs/{id}", UUID.randomUUID()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void createJob_withoutToken_returns401() throws Exception {
+        String body = objectMapper.writeValueAsString(
+                new CreateJobRequest("ACME Ltd", "1 High Street"));
+
+        // csrf() is needed so the CSRF filter (active in WebMvcTest) passes through
+        // to the authentication check, which returns 401 for requests without a bearer token.
+        mockMvc.perform(post("/api/v1/jobs")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body)
+                        .with(csrf()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void updateJob_withoutToken_returns401() throws Exception {
+        String body = objectMapper.writeValueAsString(
+                new UpdateJobRequest("ACME Ltd", "1 High Street"));
+
+        mockMvc.perform(put("/api/v1/jobs/{id}", UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body)
+                        .with(csrf()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void deleteJob_withoutToken_returns401() throws Exception {
+        mockMvc.perform(delete("/api/v1/jobs/{id}", UUID.randomUUID())
+                        .with(csrf()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    // ---- Authorised endpoint tests ----
+
     @Test
     void listJobs_returnsAllJobs() throws Exception {
         Job firstJob = buildSavedJob("ACME Ltd", "1 High Street");
         Job secondJob = buildSavedJob("Beta Ltd", "2 Low Street");
         when(jobRepository.findAllByFilters(null, null)).thenReturn(List.of(firstJob, secondJob));
 
-        mockMvc.perform(get("/api/v1/jobs"))
+        mockMvc.perform(get("/api/v1/jobs").with(jwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[0].customerName").value("ACME Ltd"))
@@ -88,7 +141,7 @@ class JobControllerTest {
         Job job = buildSavedJob("ACME Ltd", "1 High Street");
         when(jobRepository.findAllByFilters(JobStatus.COMPLETED, null)).thenReturn(List.of(job));
 
-        mockMvc.perform(get("/api/v1/jobs").param("status", "COMPLETED"))
+        mockMvc.perform(get("/api/v1/jobs").param("status", "COMPLETED").with(jwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].customerName").value("ACME Ltd"));
@@ -101,7 +154,7 @@ class JobControllerTest {
         Job job = buildSavedJob("Paid Co", "3 Main Road");
         when(jobRepository.findAllByFilters(null, true)).thenReturn(List.of(job));
 
-        mockMvc.perform(get("/api/v1/jobs").param("paid", "true"))
+        mockMvc.perform(get("/api/v1/jobs").param("paid", "true").with(jwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].customerName").value("Paid Co"));
@@ -116,7 +169,8 @@ class JobControllerTest {
 
         mockMvc.perform(get("/api/v1/jobs")
                         .param("status", "COMPLETED")
-                        .param("paid", "true"))
+                        .param("paid", "true")
+                        .with(jwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].customerName").value("Done & Paid"));
@@ -126,7 +180,7 @@ class JobControllerTest {
 
     @Test
     void listJobs_filterByInvalidStatus_returnsBadRequest() throws Exception {
-        mockMvc.perform(get("/api/v1/jobs").param("status", "NOT_A_REAL_STATUS"))
+        mockMvc.perform(get("/api/v1/jobs").param("status", "NOT_A_REAL_STATUS").with(jwt()))
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(jobRepository);
@@ -137,7 +191,7 @@ class JobControllerTest {
         Job saved = buildSavedJob("ACME Ltd", "1 High Street");
         when(jobRepository.findById(saved.getId())).thenReturn(Optional.of(saved));
 
-        mockMvc.perform(get("/api/v1/jobs/{id}", saved.getId()))
+        mockMvc.perform(get("/api/v1/jobs/{id}", saved.getId()).with(jwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(saved.getId().toString()))
                 .andExpect(jsonPath("$.customerName").value("ACME Ltd"))
@@ -149,7 +203,7 @@ class JobControllerTest {
         UUID missingId = UUID.randomUUID();
         when(jobRepository.findById(missingId)).thenReturn(Optional.empty());
 
-        mockMvc.perform(get("/api/v1/jobs/{id}", missingId))
+        mockMvc.perform(get("/api/v1/jobs/{id}", missingId).with(jwt()))
                 .andExpect(status().isNotFound());
     }
 
@@ -163,7 +217,8 @@ class JobControllerTest {
 
         mockMvc.perform(post("/api/v1/jobs")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
+                        .content(body)
+                        .with(jwt()))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.customerName").value("ACME Ltd"))
                 .andExpect(jsonPath("$.siteAddress").value("1 High Street"))
@@ -180,7 +235,8 @@ class JobControllerTest {
 
         mockMvc.perform(post("/api/v1/jobs")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
+                        .content(body)
+                        .with(jwt()))
                 .andExpect(status().isCreated());
 
         ArgumentCaptor<Job> captor = ArgumentCaptor.forClass(Job.class);
@@ -195,7 +251,8 @@ class JobControllerTest {
 
         mockMvc.perform(post("/api/v1/jobs")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
+                        .content(body)
+                        .with(jwt()))
                 .andExpect(status().isBadRequest());
     }
 
@@ -206,7 +263,8 @@ class JobControllerTest {
 
         mockMvc.perform(post("/api/v1/jobs")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
+                        .content(body)
+                        .with(jwt()))
                 .andExpect(status().isBadRequest());
     }
 
@@ -216,7 +274,8 @@ class JobControllerTest {
 
         mockMvc.perform(post("/api/v1/jobs")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
+                        .content(body)
+                        .with(jwt()))
                 .andExpect(status().isBadRequest());
     }
 
@@ -224,7 +283,8 @@ class JobControllerTest {
     void createJob_bothFieldsMissing_returns400() throws Exception {
         mockMvc.perform(post("/api/v1/jobs")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
+                        .content("{}")
+                        .with(jwt()))
                 .andExpect(status().isBadRequest());
     }
 
@@ -249,7 +309,8 @@ class JobControllerTest {
 
         mockMvc.perform(put("/api/v1/jobs/{id}", id)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
+                        .content(body)
+                        .with(jwt()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(id.toString()))
                 .andExpect(jsonPath("$.customerName").value("New Customer"))
@@ -269,7 +330,8 @@ class JobControllerTest {
 
         mockMvc.perform(put("/api/v1/jobs/{id}", id)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
+                        .content(body)
+                        .with(jwt()))
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(jobRepository);
@@ -282,7 +344,8 @@ class JobControllerTest {
 
         mockMvc.perform(put("/api/v1/jobs/{id}", id)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
+                        .content(body)
+                        .with(jwt()))
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(jobRepository);
@@ -297,7 +360,8 @@ class JobControllerTest {
 
         mockMvc.perform(put("/api/v1/jobs/{id}", id)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(body))
+                        .content(body)
+                        .with(jwt()))
                 .andExpect(status().isNotFound());
 
         verify(jobRepository, never()).save(any(Job.class));
@@ -308,7 +372,7 @@ class JobControllerTest {
         UUID id = UUID.randomUUID();
         when(jobRepository.existsById(id)).thenReturn(true);
 
-        mockMvc.perform(delete("/api/v1/jobs/" + id))
+        mockMvc.perform(delete("/api/v1/jobs/" + id).with(jwt()))
                 .andExpect(status().isNoContent());
 
         verify(jobRepository).deleteById(id);
@@ -319,7 +383,7 @@ class JobControllerTest {
         UUID id = UUID.randomUUID();
         when(jobRepository.existsById(id)).thenReturn(false);
 
-        mockMvc.perform(delete("/api/v1/jobs/" + id))
+        mockMvc.perform(delete("/api/v1/jobs/" + id).with(jwt()))
                 .andExpect(status().isNotFound());
     }
 }
