@@ -22,3 +22,6 @@ jobs:
 
       - name: Build and verify
         run: ./mvnw --batch-mode verify
+
+      - name: Build Docker images with Jib
+        run: ./mvnw --batch-mode -pl services/auth-service,services/job-service,gateway jib:dockerBuild
