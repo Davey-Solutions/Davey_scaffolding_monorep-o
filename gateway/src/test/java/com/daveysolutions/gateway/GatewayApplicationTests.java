@@ -53,15 +53,15 @@ class GatewayApplicationTests {
 
     @Test
     void excessRequestsReceiveTooManyRequests() {
-        webTestClient.get()
-                .uri("/api/v1/jobs/123")
+        webTestClient.post()
+                .uri("/api/v1/auth/login")
                 .exchange()
                 .expectStatus().isOk()
                 .expectHeader().valueEquals("X-RateLimit-Limit", "1")
                 .expectHeader().valueEquals("X-RateLimit-Remaining", "0");
 
-        webTestClient.get()
-                .uri("/api/v1/jobs/123")
+        webTestClient.post()
+                .uri("/api/v1/auth/login")
                 .exchange()
                 .expectStatus().isEqualTo(429)
                 .expectHeader().valueEquals("X-RateLimit-Limit", "1")
