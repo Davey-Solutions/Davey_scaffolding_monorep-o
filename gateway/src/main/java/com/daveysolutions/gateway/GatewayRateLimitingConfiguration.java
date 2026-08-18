@@ -4,28 +4,37 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.cloud.gateway.filter.ratelimit.RateLimiter;
-import org.springframework.cloud.gateway.support.AbstractStatefulConfigurable;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.net.InetSocketAddress;
 import java.time.Clock;
 import java.time.Duration;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * Declares the gateway beans used to resolve rate-limit keys and enforce a basic
+ * per-client request limit across routed APIs.
+ */
 @Configuration
 class GatewayRateLimitingConfiguration {
 
+    /**
+     * Creates the key resolver used by Spring Cloud Gateway rate limiting.
+     *
+     * @return a key resolver that derives the limit key from the remote client address
+     */
     @Bean
     KeyResolver clientAddressKeyResolver() {
         return exchange -> Mono.just(resolveClientAddress(exchange));
     }
 
+    /**
+     * Creates the in-memory rate limiter used by gateway routes.
+     *
+     * @return a fixed-window in-memory rate limiter
+     */
     @Bean
-    RateLimiter<InMemoryRateLimiter.Config> inMemoryRateLimiter() {
+    RateLimiter<InMemoryRateLimiterConfig> inMemoryRateLimiter() {
         return new InMemoryRateLimiter(Duration.ofMinutes(1), 1, Clock.systemUTC());
     }
 
@@ -40,65 +49,5 @@ class GatewayRateLimitingConfiguration {
         }
 
         return remoteAddress.getHostString();
-    }
-
-    static final class InMemoryRateLimiter extends AbstractStatefulConfigurable<InMemoryRateLimiter.Config>
-            implements RateLimiter<InMemoryRateLimiter.Config> {
-
-        private static final String REMAINING_HEADER = "X-RateLimit-Remaining";
-        private static final String LIMIT_HEADER = "X-RateLimit-Limit";
-
-        private final Duration replenishPeriod;
-        private final int burstCapacity;
-        private final Clock clock;
-        private final ConcurrentMap<String, Window> windows = new ConcurrentHashMap<>();
-        private final AtomicLong nextEvictionAt = new AtomicLong();
-
-        InMemoryRateLimiter(Duration replenishPeriod, int burstCapacity, Clock clock) {
-            super(Config.class);
-            this.replenishPeriod = replenishPeriod;
-            this.burstCapacity = burstCapacity;
-            this.clock = clock;
-        }
-
-        @Override
-        public Mono<Response> isAllowed(String routeId, String key) {
-            long now = clock.millis();
-            evictExpiredWindowsIfDue(now);
-            String compositeKey = routeId + ":" + key;
-            Window window = windows.compute(compositeKey, (ignored, existing) -> refreshWindow(existing, now));
-            int remaining = Math.max(burstCapacity - window.requestCount(), 0);
-            return Mono.just(new Response(window.requestCount() <= burstCapacity, Map.of(
-                    LIMIT_HEADER, Integer.toString(burstCapacity),
-                    REMAINING_HEADER, Integer.toString(remaining)
-            )));
-        }
-
-        private void evictExpiredWindowsIfDue(long now) {
-            long scheduledEviction = nextEvictionAt.get();
-            if (now < scheduledEviction) {
-                return;
-            }
-
-            if (!nextEvictionAt.compareAndSet(scheduledEviction, now + replenishPeriod.toMillis())) {
-                return;
-            }
-
-            windows.entrySet().removeIf(entry -> now - entry.getValue().windowStartedAt() >= replenishPeriod.toMillis());
-        }
-
-        private Window refreshWindow(Window existing, long now) {
-            if (existing == null || now - existing.windowStartedAt() >= replenishPeriod.toMillis()) {
-                return new Window(now, 1);
-            }
-
-            return new Window(existing.windowStartedAt(), Math.min(existing.requestCount() + 1, burstCapacity + 1));
-        }
-
-        static final class Config {
-        }
-
-        private record Window(long windowStartedAt, int requestCount) {
-        }
     }
 }
