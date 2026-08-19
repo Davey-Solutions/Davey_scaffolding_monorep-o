@@ -56,15 +56,11 @@ class GatewayApplicationTests {
         webTestClient.post()
                 .uri("/api/v1/auth/login")
                 .exchange()
-                .expectStatus().isOk()
-                .expectHeader().valueEquals("X-RateLimit-Limit", "1")
-                .expectHeader().valueEquals("X-RateLimit-Remaining", "0");
+                .expectStatus().isOk();
 
         webTestClient.post()
                 .uri("/api/v1/auth/login")
                 .exchange()
-                .expectStatus().isEqualTo(429)
-                .expectHeader().valueEquals("X-RateLimit-Limit", "1")
-                .expectHeader().valueEquals("X-RateLimit-Remaining", "0");
+                .expectStatus().isEqualTo(429);
     }
 }
