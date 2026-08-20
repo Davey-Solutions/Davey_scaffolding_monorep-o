@@ -79,6 +79,31 @@
                     <release>21</release>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>com.google.cloud.tools</groupId>
+                <artifactId>jib-maven-plugin</artifactId>
+                <version>3.4.5</version>
+                <configuration>
+                    <from>
+                        <image>eclipse-temurin:21-jre</image>
+                    </from>
+                    <to>
+                        <image>ghcr.io/davey-solutions/gateway</image>
+                        <tags>
+                            <tag>latest</tag>
+                            <tag>${project.version}</tag>
+                        </tags>
+                    </to>
+                    <container>
+                        <jvmFlags>
+                            <jvmFlag>-Xmx128m</jvmFlag>
+                        </jvmFlags>
+                        <ports>
+                            <port>8080</port>
+                        </ports>
+                    </container>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>
