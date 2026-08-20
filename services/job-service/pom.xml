@@ -141,8 +141,6 @@
                         </jvmFlags>
                     </container>
                 </configuration>
-                    </container>
-                </configuration>
             </plugin>
         </plugins>
     </build>
