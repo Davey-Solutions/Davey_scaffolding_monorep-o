@@ -36,6 +36,7 @@ services:
     image: ghcr.io/davey-solutions/job-service:latest
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      JWT_SECRET: ${JWT_SECRET}
       JOBS_DB_PASSWORD: ${JOBS_DB_PASSWORD:-jobs_pass}
       JAVA_TOOL_OPTIONS: "-Xmx128m"
     depends_on:
@@ -52,6 +53,7 @@ services:
     ports:
       - "8080:8080"
     environment:
+      JWT_SECRET: ${JWT_SECRET}
       JAVA_TOOL_OPTIONS: "-Xmx128m"
     depends_on:
       auth-service:

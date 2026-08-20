@@ -44,9 +44,22 @@
             <scope>runtime</scope>
         </dependency>
         <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.h2database</groupId>
@@ -107,10 +120,10 @@
             <plugin>
                 <groupId>com.google.cloud.tools</groupId>
                 <artifactId>jib-maven-plugin</artifactId>
-                <version>3.4.5</version>
+                <version>3.4.4</version>
                 <configuration>
                     <from>
-                        <image>eclipse-temurin:21-jre</image>
+                        <image>${jib.base.image}</image>
                     </from>
                     <to>
                         <image>ghcr.io/davey-solutions/job-service</image>
@@ -120,12 +133,14 @@
                         </tags>
                     </to>
                     <container>
+                        <ports>
+                            <port>8082</port>
+                        </ports>
                         <jvmFlags>
                             <jvmFlag>-Xmx128m</jvmFlag>
                         </jvmFlags>
-                        <ports>
-                            <port>8080</port>
-                        </ports>
+                    </container>
+                </configuration>
                     </container>
                 </configuration>
             </plugin>

@@ -3,6 +3,11 @@ spring:
     name: gateway
   cloud:
     gateway:
+      default-filters:
+        - name: RequestRateLimiter
+          args:
+            key-resolver: "#{@clientAddressKeyResolver}"
+            rate-limiter: "#{@inMemoryRateLimiter}"
       routes:
         - id: job-service
           uri: ${JOB_SERVICE_URI:http://job-service:8080}
@@ -22,3 +27,9 @@ management:
   endpoint:
     health:
       show-details: never
+
+# JWT signing key shared with auth-service.  Must be a plain UTF-8 string of
+# at least 32 characters (256-bit HMAC-SHA256 key).
+# Sourced from the JWT_SECRET environment variable; startup will fail if unset.
+jwt:
+  secret: ${JWT_SECRET}
