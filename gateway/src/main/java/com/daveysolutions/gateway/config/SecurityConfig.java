@@ -37,6 +37,7 @@ public class SecurityConfig {
      *   <li>{@code /api/v1/auth/login}   — public (no token required)</li>
      *   <li>{@code /api/v1/auth/refresh} — public (no token required)</li>
      *   <li>{@code /actuator/health}     — public (liveness probe)</li>
+     *   <li>{@code /actuator/metrics/**} — public (operational metrics)</li>
      *   <li>Everything else              — authenticated via ******
      * </ul>
      *
@@ -54,6 +55,7 @@ public class SecurityConfig {
                 .authorizeExchange(exchanges -> exchanges
                         .pathMatchers("/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
                         .pathMatchers("/actuator/health").permitAll()
+                        .pathMatchers("/actuator/metrics", "/actuator/metrics/**").permitAll()
                         .anyExchange().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
