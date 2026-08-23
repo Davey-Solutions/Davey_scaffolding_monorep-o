@@ -35,10 +35,11 @@ export function LoginView(props: LoginViewProps) {
       <h1>Log in</h1>
       <p className="login-copy">Sign in with your owner account to view jobs.</p>
       <form className="login-form" onSubmit={props.onSubmit}>
-        <label>
+        <label htmlFor="login-email">
           <span>Email</span>
           <input
             autoComplete="email"
+            id="login-email"
             name="email"
             onChange={(event) => props.onEmailChange(event.target.value)}
             required
@@ -46,10 +47,11 @@ export function LoginView(props: LoginViewProps) {
             value={props.email}
           />
         </label>
-        <label>
+        <label htmlFor="login-password">
           <span>Password</span>
           <input
             autoComplete="current-password"
+            id="login-password"
             name="password"
             onChange={(event) => props.onPasswordChange(event.target.value)}
             required
