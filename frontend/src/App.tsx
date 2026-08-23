@@ -127,6 +127,7 @@ function loadJobsForRoute(
   let isActive = true
   actions.setIsLoadingJobs(true)
   actions.setJobsError(null)
+  actions.setJobs([])
 
   void loadJobs()
     .then((loadedJobs) => {

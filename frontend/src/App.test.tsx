@@ -16,6 +16,7 @@ describe('App', () => {
   })
 
   it('logs in, stores tokens, loads jobs, and sends the bearer token', async () => {
+    let jobRequestHeaders: Headers | null = null
     const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
       const url = String(input)
 
@@ -26,9 +27,7 @@ describe('App', () => {
         })
       }
 
-      const requestHeaders = init?.headers
-      expect(requestHeaders).toBeInstanceOf(Headers)
-      expect((requestHeaders as Headers).get('Authorization')).toBe(['Bearer', 'access-token'].join(' '))
+      jobRequestHeaders = init?.headers as Headers
 
       return createJsonResponse([
         {
@@ -54,6 +53,8 @@ describe('App', () => {
     expect(window.localStorage.getItem('davey.accessToken')).toBe('access-token')
     expect(window.localStorage.getItem('davey.refreshToken')).toBe('refresh-token')
     expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(jobRequestHeaders).toBeInstanceOf(Headers)
+    expect(jobRequestHeaders?.get('Authorization')).toBe(['Bearer', 'access-token'].join(' '))
   })
 
   it('shows an invalid credentials error', async () => {
