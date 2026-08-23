@@ -146,8 +146,11 @@ function loadJobsForRoute(
     })
 
   return () => {
+    if (isActive) {
+      actions.setIsLoadingJobs(false)
+    }
+
     isActive = false
-    actions.setIsLoadingJobs(false)
   }
 }
 
