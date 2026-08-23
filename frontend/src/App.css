@@ -1,8 +1,150 @@
-.placeholder {
+.app-shell {
   display: flex;
-  flex-direction: column;
+  min-height: 100vh;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
-  font-family: sans-serif;
+  padding: 32px;
+  box-sizing: border-box;
+}
+
+.login-card,
+.jobs-view {
+  width: min(100%, 720px);
+}
+
+.login-card {
+  text-align: left;
+  padding: 32px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.8rem;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+
+.login-copy {
+  margin-bottom: 24px;
+}
+
+.login-form {
+  display: grid;
+  gap: 16px;
+}
+
+.login-form label {
+  display: grid;
+  gap: 8px;
+}
+
+.login-form span {
+  color: var(--text-h);
+  font-weight: 500;
+}
+
+.login-form input {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font: inherit;
+  color: var(--text-h);
+  background: var(--bg);
+}
+
+.login-form button {
+  border: 0;
+  border-radius: 999px;
+  padding: 14px 18px;
+  font: inherit;
+  font-weight: 600;
+  color: white;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+.login-form button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.panel {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--accent-bg);
+  color: var(--text-h);
+}
+
+.panel-error {
+  background: rgba(220, 38, 38, 0.12);
+  color: #b91c1c;
+}
+
+.jobs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  margin-bottom: 24px;
+  text-align: left;
+}
+
+.job-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 16px;
+}
+
+.job-card {
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+
+.job-card h2 {
+  margin-bottom: 4px;
+}
+
+.job-card p {
+  margin-bottom: 16px;
+}
+
+.job-card dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.job-card dt {
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.job-card dd {
+  margin: 4px 0 0;
+  color: var(--text-h);
+}
+
+@media (max-width: 720px) {
+  .app-shell {
+    padding: 16px;
+  }
+
+  .login-card {
+    padding: 24px;
+  }
+
+  .job-card dl {
+    grid-template-columns: 1fr;
+  }
 }
