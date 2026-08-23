@@ -146,11 +146,14 @@ function loadJobsForRoute(
     })
 
   return () => {
+    const shouldResetLoading = isActive
     if (isActive) {
-      actions.setIsLoadingJobs(false)
+      isActive = false
     }
 
-    isActive = false
+    if (shouldResetLoading) {
+      actions.setIsLoadingJobs(false)
+    }
   }
 }
 
