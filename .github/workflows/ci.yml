@@ -52,7 +52,7 @@ jobs:
         run: >
           ./mvnw --batch-mode --no-transfer-progress
           -pl services/auth-service,services/job-service,gateway
-          jib:build
+          package jib:build -DskipTests
 
       - name: Create .env for docker compose
         run: |
