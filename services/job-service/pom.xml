@@ -126,14 +126,18 @@
                         <image>${jib.base.image}</image>
                     </from>
                     <to>
-                        <image>daveysolutions/job-service:${project.version}</image>
+                        <image>ghcr.io/davey-solutions/job-service</image>
+                        <tags>
+                            <tag>latest</tag>
+                            <tag>${project.version}</tag>
+                        </tags>
                     </to>
                     <container>
                         <ports>
                             <port>8082</port>
                         </ports>
                         <jvmFlags>
-                            <jvmFlag>-Dspring.profiles.active=${spring.profiles.active}</jvmFlag>
+                            <jvmFlag>-Xmx128m</jvmFlag>
                         </jvmFlags>
                     </container>
                 </configuration>
