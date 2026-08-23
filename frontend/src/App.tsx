@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
-import { loadJobs, login } from './api/apiClient'
+import { loadJobs, login, SessionExpiredError } from './api/apiClient'
 import { StoredSession } from './auth/StoredSession'
 import { JobsView } from './components/JobsView'
 import { LoginView } from './components/LoginView'
@@ -166,14 +166,12 @@ async function completeLogin(
 }
 
 function handleJobsError(error: unknown, actions: JobsLoaderActions) {
-  const message = error instanceof Error ? error.message : 'Unable to load jobs.'
-
-  if (message.includes('session')) {
-    actions.onSessionExpired(message)
+  if (error instanceof SessionExpiredError) {
+    actions.onSessionExpired(error.message)
     return
   }
 
-  actions.setJobsError(message)
+  actions.setJobsError(error instanceof Error ? error.message : 'Unable to load jobs.')
 }
 
 function resetSession(

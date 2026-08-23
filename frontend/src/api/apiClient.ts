@@ -5,6 +5,18 @@ import type { LoginResponse } from '../types/LoginResponse'
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 
 /**
+ * Error raised when the stored access token is rejected.
+ */
+export class SessionExpiredError extends Error {
+  /**
+   * Creates the session-expired error.
+   */
+  public constructor() {
+    super('Your session has expired. Please log in again.')
+  }
+}
+
+/**
  * Logs a user in through the gateway auth endpoint.
  *
  * @param email email entered in the login form
@@ -94,7 +106,7 @@ async function parseJobsResponse(response: Response) {
 
 function createJobsError(status: number) {
   if (status === 401) {
-    return new Error('Your session has expired. Please log in again.')
+    return new SessionExpiredError()
   }
 
   return new Error('Unable to load jobs.')
