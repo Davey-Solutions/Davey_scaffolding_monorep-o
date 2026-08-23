@@ -23,9 +23,10 @@ import java.nio.charset.StandardCharsets;
  * Security configuration for the Job Service (resource-server).
  *
  * <p>All job endpoints require a valid JWT bearer token issued by the auth-service.
- * The actuator health endpoint is exposed without authentication for liveness/readiness probes.
- * CSRF is disabled because the service is stateless and authenticates via bearer tokens only.
- * Unauthenticated requests receive HTTP 401 rather than a redirect.
+ * The actuator health and metrics endpoints are exposed without authentication for
+ * liveness/readiness probes and operational monitoring. CSRF is disabled because the service is
+ * stateless and authenticates via bearer tokens only. Unauthenticated requests receive HTTP 401
+ * rather than a redirect.
  */
 @Configuration
 public class SecurityConfig {
@@ -46,7 +47,7 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(EndpointRequest.to("health")).permitAll()
+                        .requestMatchers(EndpointRequest.to("health", "metrics")).permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.decoder(jwtDecoder)));
