@@ -1,7 +1,6 @@
 package com.daveysolutions.gateway;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
+import com.daveysolutions.gateway.logging.RequestIdWebFilter;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import java.util.List;
 import java.util.Map;
@@ -11,25 +10,37 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.ratelimit.RateLimiter;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import org.junit.jupiter.api.extension.ExtendWith;
 import reactor.core.publisher.Mono;
 import reactor.netty.DisposableServer;
 import reactor.netty.http.server.HttpServer;
 
+import java.util.concurrent.atomic.AtomicReference;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@ExtendWith(OutputCaptureExtension.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class GatewayApplicationTests {
+
+    private static final AtomicReference<String> DOWNSTREAM_REQUEST_ID = new AtomicReference<>();
 
     private static final DisposableServer DOWNSTREAM_SERVER = HttpServer.create()
             .host("127.0.0.1")
             .port(0)
             .route(routes -> routes.route(request -> true,
-                    (request, response) -> response.status(
-                                    request.uri().endsWith("/api/v1/auth/refresh")
-                                            ? HttpResponseStatus.INTERNAL_SERVER_ERROR
-                                            : HttpResponseStatus.OK)
-                            .sendString(Mono.just("ok"))))
+                    (request, response) -> {
+                        DOWNSTREAM_REQUEST_ID.set(request.requestHeaders().get(RequestIdWebFilter.REQUEST_ID_HEADER));
+                        return response.status(request.uri().endsWith("/api/v1/auth/refresh")
+                                        ? HttpResponseStatus.INTERNAL_SERVER_ERROR
+                                        : HttpResponseStatus.OK)
+                                .sendString(Mono.just("ok"));
+                    }))
             .bindNow();
 
     @Autowired
@@ -46,6 +57,7 @@ class GatewayApplicationTests {
 
     @BeforeEach
     void resetRateLimiter() throws ReflectiveOperationException {
+        DOWNSTREAM_REQUEST_ID.set(null);
         clearRateLimiterState();
     }
 
@@ -81,16 +93,32 @@ class GatewayApplicationTests {
     }
 
     @Test
-    void excessRequestsReceiveTooManyRequests() {
-        webTestClient.post()
+    void routedRequestsReceiveGeneratedRequestIds(CapturedOutput output) {
+        var result = webTestClient.post()
                 .uri("/api/v1/auth/login")
                 .exchange()
-                .expectStatus().isOk();
+                .expectStatus().isOk()
+                .expectHeader().exists(RequestIdWebFilter.REQUEST_ID_HEADER)
+                .returnResult(String.class);
 
+        String requestId = result.getResponseHeaders().getFirst(RequestIdWebFilter.REQUEST_ID_HEADER);
+        assertThat(requestId).isNotBlank();
+        assertThat(DOWNSTREAM_REQUEST_ID.get()).isEqualTo(requestId);
+        assertThat(output.getOut()).contains("\"requestId\":\"" + requestId + "\"");
+    }
+
+    @Test
+    void routedRequestsPropagateExistingRequestIds(CapturedOutput output) {
+        String requestId = "gateway-test-request-id";
         webTestClient.post()
                 .uri("/api/v1/auth/login")
+                .header(RequestIdWebFilter.REQUEST_ID_HEADER, requestId)
                 .exchange()
-                .expectStatus().isEqualTo(429);
+                .expectStatus().isOk()
+                .expectHeader().valueEquals(RequestIdWebFilter.REQUEST_ID_HEADER, requestId);
+
+        assertThat(DOWNSTREAM_REQUEST_ID.get()).isEqualTo(requestId);
+        assertThat(output.getOut()).contains("\"requestId\":\"" + requestId + "\"");
     }
 
     @Test
