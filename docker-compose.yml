@@ -22,7 +22,6 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       JWT_SECRET: ${JWT_SECRET}
       AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:-auth_pass}
-      JAVA_TOOL_OPTIONS: "-Xmx128m"
     depends_on:
       postgres:
         condition: service_healthy
@@ -38,7 +37,6 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       JWT_SECRET: ${JWT_SECRET}
       JOBS_DB_PASSWORD: ${JOBS_DB_PASSWORD:-jobs_pass}
-      JAVA_TOOL_OPTIONS: "-Xmx128m"
     depends_on:
       postgres:
         condition: service_healthy
@@ -54,7 +52,6 @@ services:
       - "8080:8080"
     environment:
       JWT_SECRET: ${JWT_SECRET}
-      JAVA_TOOL_OPTIONS: "-Xmx128m"
     depends_on:
       auth-service:
         condition: service_healthy
