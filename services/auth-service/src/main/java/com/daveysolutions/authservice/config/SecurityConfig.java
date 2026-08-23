@@ -21,10 +21,10 @@ public class SecurityConfig {
     /**
      * Configures HTTP security rules.
      *
-     * <p>The actuator health endpoint and the login endpoint are intentionally exposed without
-     * authentication. All other requests require authentication. CSRF is disabled because the
-     * service is stateless and issues JWTs. Unauthenticated requests to protected endpoints
-     * receive HTTP 401 rather than a redirect.
+     * <p>The actuator health and metrics endpoints, along with the login endpoints, are
+     * intentionally exposed without authentication. All other requests require authentication.
+     * CSRF is disabled because the service is stateless and issues JWTs. Unauthenticated
+     * requests to protected endpoints receive HTTP 401 rather than a redirect.
      *
      * @param http the mutable Spring Security HTTP configuration
      * @return the built security filter chain
@@ -38,7 +38,7 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(EndpointRequest.to("health")).permitAll()
+                        .requestMatchers(EndpointRequest.to("health", "metrics")).permitAll()
                         .requestMatchers("/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
                         .anyRequest().authenticated());
         return http.build();
