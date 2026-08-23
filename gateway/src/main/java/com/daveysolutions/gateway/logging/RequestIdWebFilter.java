@@ -37,14 +37,17 @@ public class RequestIdWebFilter implements WebFilter {
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         String requestId = resolveRequestId(exchange.getRequest().getHeaders());
-        ServerHttpRequest request = exchange.getRequest()
-                .mutate()
-                .headers(headers -> headers.set(REQUEST_ID_HEADER, requestId))
-                .build();
+        ServerHttpRequest request = withRequestId(exchange.getRequest(), requestId);
         ServerWebExchange mutatedExchange = exchange.mutate().request(request).build();
         mutatedExchange.getResponse().getHeaders().set(REQUEST_ID_HEADER, requestId);
         return chain.filter(mutatedExchange)
                 .doFinally(signalType -> logRequest(mutatedExchange, requestId));
+    }
+
+    private static ServerHttpRequest withRequestId(ServerHttpRequest request, String requestId) {
+        return request.mutate()
+                .headers(headers -> headers.set(REQUEST_ID_HEADER, requestId))
+                .build();
     }
 
     private static String resolveRequestId(HttpHeaders headers) {
@@ -57,11 +60,22 @@ public class RequestIdWebFilter implements WebFilter {
 
     private static void logRequest(ServerWebExchange exchange, String requestId) {
         HttpStatusCode statusCode = exchange.getResponse().getStatusCode();
+        withRequestId(requestId, () -> log.info("Handled {} {} -> {}",
+                exchange.getRequest().getMethod(),
+                exchange.getRequest().getPath().value(),
+                getStatusCodeValue(statusCode)));
+    }
+
+    private static void withRequestId(String requestId, Runnable action) {
         try (MDC.MDCCloseable ignored = MDC.putCloseable("requestId", requestId)) {
-            log.info("Handled {} {} -> {}",
-                    exchange.getRequest().getMethod(),
-                    exchange.getRequest().getPath().value(),
-                    statusCode != null ? statusCode.value() : 0);
+            action.run();
         }
+    }
+
+    private static int getStatusCodeValue(HttpStatusCode statusCode) {
+        if (statusCode == null) {
+            return 0;
+        }
+        return statusCode.value();
     }
 }

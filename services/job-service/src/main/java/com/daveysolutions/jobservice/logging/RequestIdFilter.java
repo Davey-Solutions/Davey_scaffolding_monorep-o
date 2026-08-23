@@ -33,13 +33,13 @@ class RequestIdFilter extends OncePerRequestFilter {
         String requestId = resolveRequestId(request.getHeader(REQUEST_ID_HEADER));
         response.setHeader(REQUEST_ID_HEADER, requestId);
 
-        try (MDC.MDCCloseable ignored = MDC.putCloseable("requestId", requestId)) {
+        withRequestId(requestId, () -> {
             try {
                 filterChain.doFilter(request, response);
             } finally {
-                log.info("Handled {} {} -> {}", request.getMethod(), request.getRequestURI(), response.getStatus());
+                logRequest(request, response);
             }
-        }
+        });
     }
 
     private static String resolveRequestId(String requestId) {
@@ -47,5 +47,20 @@ class RequestIdFilter extends OncePerRequestFilter {
             return UUID.randomUUID().toString();
         }
         return requestId;
+    }
+
+    private static void withRequestId(String requestId, FilterAction action) throws ServletException, IOException {
+        try (MDC.MDCCloseable ignored = MDC.putCloseable("requestId", requestId)) {
+            action.run();
+        }
+    }
+
+    private static void logRequest(HttpServletRequest request, HttpServletResponse response) {
+        log.info("Handled {} {} -> {}", request.getMethod(), request.getRequestURI(), response.getStatus());
+    }
+
+    @FunctionalInterface
+    private interface FilterAction {
+        void run() throws ServletException, IOException;
     }
 }
