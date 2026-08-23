@@ -27,7 +27,7 @@ describe('App', () => {
         })
       }
 
-      jobRequestHeaders = init?.headers as Headers
+      jobRequestHeaders = new Headers(init?.headers)
 
       return createJsonResponse([
         {
