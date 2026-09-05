@@ -86,7 +86,8 @@ jobs:
       - name: Resolve project version
         if: github.ref == 'refs/heads/main'
         run: |
-          project_version=$(./mvnw --batch-mode -q -Dstyle.color=never -DforceStdout help:evaluate -Dexpression=project.version | tr -d '\r' | sed -E 's/[^A-Za-z0-9_.-]+/-/g')
+          raw_version=$(./mvnw --batch-mode -q -Dstyle.color=never -DforceStdout help:evaluate -Dexpression=project.version | tr -d '\r' | sed -n '1p' | xargs)
+          project_version=$(echo "${raw_version}" | sed -E 's/[^A-Za-z0-9_.-]+/-/g')
           if [ -z "${project_version}" ]; then
             echo "Resolved project version is empty after sanitization" >&2
             exit 1
