@@ -62,10 +62,15 @@ jobs:
           cache: maven
 
       - name: Build images with Jib
-        run: >
-          ./mvnw --batch-mode --no-transfer-progress
-          -pl services/auth-service,services/job-service,gateway
-          package jib:dockerBuild -DskipTests
+        run: |
+          for module in services/auth-service services/job-service gateway; do
+            image="ghcr.io/davey-solutions/$(basename "${module}")"
+            ./mvnw --batch-mode --no-transfer-progress \
+              -pl "${module}" \
+              package jib:dockerBuild -DskipTests \
+              -Djib.to.image="${image}" \
+              -Djib.to.tags=latest
+          done
 
       - name: Create .env for docker compose
         run: |
@@ -94,6 +99,7 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: |
           for image in auth-service job-service gateway; do
+            docker tag "ghcr.io/davey-solutions/${image}:latest" "ghcr.io/davey-solutions/${image}:${PROJECT_VERSION}"
             docker tag "ghcr.io/davey-solutions/${image}:latest" "ghcr.io/davey-solutions/${image}:${GITHUB_SHA}"
             docker push "ghcr.io/davey-solutions/${image}:latest"
             docker push "ghcr.io/davey-solutions/${image}:${PROJECT_VERSION}"
