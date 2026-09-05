@@ -86,7 +86,11 @@ jobs:
       - name: Resolve project version
         if: github.ref == 'refs/heads/main'
         run: |
-          project_version=$(./mvnw --batch-mode -q -Dstyle.color=never -DforceStdout help:evaluate -Dexpression=project.version | tr -d '\r')
+          project_version=$(./mvnw --batch-mode -q -Dstyle.color=never -DforceStdout help:evaluate -Dexpression=project.version | tr -d '\r' | sed -E 's/[^A-Za-z0-9_.-]+/-/g')
+          if [ -z "${project_version}" ]; then
+            echo "Resolved project version is empty after sanitization" >&2
+            exit 1
+          fi
           echo "PROJECT_VERSION=${project_version}" >> "${GITHUB_ENV}"
 
       - name: Log in to GHCR
