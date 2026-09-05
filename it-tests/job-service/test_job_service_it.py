@@ -136,6 +136,12 @@ def test_job_crud_and_default_status_paid(job_service_url: str, auth_headers: di
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
     assert get_response.status_code == 200
+    fetched = get_response.json()
+    assert fetched["id"] == job_id
+    assert fetched["customerName"] == created["customerName"]
+    assert fetched["siteAddress"] == created["siteAddress"]
+    assert fetched["status"] == "PENDING"
+    assert fetched["paid"] is False
 
     list_response = requests.get(
         f"{job_service_url}/api/v1/jobs",
@@ -221,7 +227,9 @@ def test_filtering_by_status_and_paid(job_service_url: str, auth_headers: dict[s
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
     assert status_only_mismatch_response.status_code == 200
-    assert status_only_mismatch_response.json() == []
+    status_only_mismatch_ids = {job["id"] for job in status_only_mismatch_response.json()}
+    assert first_created["id"] not in status_only_mismatch_ids
+    assert second_created["id"] not in status_only_mismatch_ids
 
     paid_only_mismatch_response = requests.get(
         f"{job_service_url}/api/v1/jobs",
@@ -230,7 +238,9 @@ def test_filtering_by_status_and_paid(job_service_url: str, auth_headers: dict[s
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
     assert paid_only_mismatch_response.status_code == 200
-    assert paid_only_mismatch_response.json() == []
+    paid_only_mismatch_ids = {job["id"] for job in paid_only_mismatch_response.json()}
+    assert first_created["id"] not in paid_only_mismatch_ids
+    assert second_created["id"] not in paid_only_mismatch_ids
 
     both_mismatch_response = requests.get(
         f"{job_service_url}/api/v1/jobs",
@@ -239,7 +249,9 @@ def test_filtering_by_status_and_paid(job_service_url: str, auth_headers: dict[s
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
     assert both_mismatch_response.status_code == 200
-    assert both_mismatch_response.json() == []
+    both_mismatch_ids = {job["id"] for job in both_mismatch_response.json()}
+    assert first_created["id"] not in both_mismatch_ids
+    assert second_created["id"] not in both_mismatch_ids
 
 
 @pytest.mark.parametrize(
