@@ -197,8 +197,8 @@ def test_create_validation_errors(
 
 
 def test_filtering_by_status_and_paid(job_service_url: str, auth_headers: dict[str, str], tracked_job_ids: list[str]) -> None:
-    _create_job(job_service_url, auth_headers, tracked_job_ids)
-    _create_job(job_service_url, auth_headers, tracked_job_ids)
+    first_created = _create_job(job_service_url, auth_headers, tracked_job_ids)
+    second_created = _create_job(job_service_url, auth_headers, tracked_job_ids)
 
     matching_response = requests.get(
         f"{job_service_url}/api/v1/jobs",
@@ -210,6 +210,9 @@ def test_filtering_by_status_and_paid(job_service_url: str, auth_headers: dict[s
     matching_jobs = matching_response.json()
     assert len(matching_jobs) >= 2
     assert all(job["status"] == "PENDING" and job["paid"] is False for job in matching_jobs)
+    matching_ids = {job["id"] for job in matching_jobs}
+    assert first_created["id"] in matching_ids
+    assert second_created["id"] in matching_ids
 
     status_only_mismatch_response = requests.get(
         f"{job_service_url}/api/v1/jobs",
