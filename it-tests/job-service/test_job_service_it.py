@@ -193,6 +193,17 @@ def test_filtering_by_status_and_paid(job_service_url: str, auth_headers: dict[s
     assert first["id"] in ids
     assert second["id"] in ids
 
+    no_match_response = requests.get(
+        f"{job_service_url}/api/v1/jobs",
+        params={"status": "COMPLETED", "paid": "true"},
+        headers=auth_headers,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
+    assert no_match_response.status_code == 200
+    no_match_ids = {job["id"] for job in no_match_response.json()}
+    assert first["id"] not in no_match_ids
+    assert second["id"] not in no_match_ids
+
 
 @pytest.mark.parametrize(
     "payload",
