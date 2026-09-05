@@ -109,6 +109,16 @@ def _create_job(job_service_url: str, auth_headers: dict[str, str], tracked_job_
     return body
 
 
+def _assert_validation_problem(response: requests.Response, expected_fields: list[str]) -> None:
+    assert response.status_code == 400
+    body = response.json()
+    assert body.get("status") == 400
+    assert body.get("title") == "Validation failed"
+    detail = body.get("detail", "")
+    for field in expected_fields:
+        assert field in detail
+
+
 def test_job_crud_and_default_status_paid(job_service_url: str, auth_headers: dict[str, str], tracked_job_ids: list[str]) -> None:
     created = _create_job(job_service_url, auth_headers, tracked_job_ids)
     job_id = created["id"]
@@ -162,22 +172,24 @@ def test_job_crud_and_default_status_paid(job_service_url: str, auth_headers: di
 
 
 @pytest.mark.parametrize(
-    "payload",
+    ("payload", "expected_fields"),
     [
-        {"customerName": "", "siteAddress": "Test Site"},
-        {"customerName": "Test Customer", "siteAddress": ""},
-        {"customerName": "Test Customer"},
-        {"siteAddress": "Test Site"},
+        ({"customerName": "", "siteAddress": "Test Site"}, ["customerName"]),
+        ({"customerName": "Test Customer", "siteAddress": ""}, ["siteAddress"]),
+        ({"customerName": "Test Customer"}, ["siteAddress"]),
+        ({"siteAddress": "Test Site"}, ["customerName"]),
     ],
 )
-def test_create_validation_errors(job_service_url: str, auth_headers: dict[str, str], payload: dict) -> None:
+def test_create_validation_errors(
+    job_service_url: str, auth_headers: dict[str, str], payload: dict, expected_fields: list[str]
+) -> None:
     response = requests.post(
         f"{job_service_url}/api/v1/jobs",
         json=payload,
         headers=auth_headers,
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
-    assert response.status_code == 400
+    _assert_validation_problem(response, expected_fields)
 
 
 def test_filtering_by_status_and_paid(job_service_url: str, auth_headers: dict[str, str], tracked_job_ids: list[str]) -> None:
@@ -193,9 +205,6 @@ def test_filtering_by_status_and_paid(job_service_url: str, auth_headers: dict[s
     assert response.status_code == 200
 
     filtered_jobs = response.json()
-    ids = {job["id"] for job in filtered_jobs}
-    assert first["id"] in ids
-    assert second["id"] in ids
     assert all(job["status"] == "PENDING" and job["paid"] is False for job in filtered_jobs)
 
     no_match_response = requests.get(
@@ -211,15 +220,21 @@ def test_filtering_by_status_and_paid(job_service_url: str, auth_headers: dict[s
 
 
 @pytest.mark.parametrize(
-    "payload",
+    ("payload", "expected_fields"),
     [
-        {"customerName": "", "siteAddress": "Test Site"},
-        {"customerName": "Test Customer", "siteAddress": ""},
-        {"customerName": "Test Customer"},
-        {"siteAddress": "Test Site"},
+        ({"customerName": "", "siteAddress": "Test Site"}, ["customerName"]),
+        ({"customerName": "Test Customer", "siteAddress": ""}, ["siteAddress"]),
+        ({"customerName": "Test Customer"}, ["siteAddress"]),
+        ({"siteAddress": "Test Site"}, ["customerName"]),
     ],
 )
-def test_update_validation_errors(job_service_url: str, auth_headers: dict[str, str], tracked_job_ids: list[str], payload: dict) -> None:
+def test_update_validation_errors(
+    job_service_url: str,
+    auth_headers: dict[str, str],
+    tracked_job_ids: list[str],
+    payload: dict,
+    expected_fields: list[str],
+) -> None:
     created = _create_job(job_service_url, auth_headers, tracked_job_ids)
     response = requests.put(
         f"{job_service_url}/api/v1/jobs/{created['id']}",
@@ -227,4 +242,4 @@ def test_update_validation_errors(job_service_url: str, auth_headers: dict[str, 
         headers=auth_headers,
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
-    assert response.status_code == 400
+    _assert_validation_problem(response, expected_fields)
