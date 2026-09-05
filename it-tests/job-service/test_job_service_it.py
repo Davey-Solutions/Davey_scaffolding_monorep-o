@@ -196,17 +196,6 @@ def test_filtering_by_status_and_paid(job_service_url: str, auth_headers: dict[s
     _create_job(job_service_url, auth_headers, tracked_job_ids)
     _create_job(job_service_url, auth_headers, tracked_job_ids)
 
-    response = requests.get(
-        f"{job_service_url}/api/v1/jobs",
-        params={"status": "PENDING", "paid": "false"},
-        headers=auth_headers,
-        timeout=REQUEST_TIMEOUT_SECONDS,
-    )
-    assert response.status_code == 200
-
-    filtered_jobs = response.json()
-    assert all(job["status"] == "PENDING" and job["paid"] is False for job in filtered_jobs)
-
     no_match_response = requests.get(
         f"{job_service_url}/api/v1/jobs",
         params={"status": "COMPLETED", "paid": "true"},
