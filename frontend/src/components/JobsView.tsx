@@ -82,11 +82,13 @@ export function JobsView(props: JobsViewProps) {
           </label>
         </div>
       </header>
-      {props.jobs.length === 0 ? <p className="panel">No jobs yet.</p> : null}
-      {props.jobs.length > 0 && filteredJobs.length === 0 ? (
-        <p className="panel">No jobs match the selected filters.</p>
-      ) : null}
-      {filteredJobs.length > 0 ? <JobList jobs={filteredJobs} /> : null}
+      <div aria-live="polite">
+        {props.jobs.length === 0 ? <p className="panel">No jobs yet.</p> : null}
+        {props.jobs.length > 0 && filteredJobs.length === 0 ? (
+          <p className="panel">No jobs match the selected filters.</p>
+        ) : null}
+        {filteredJobs.length > 0 ? <JobList jobs={filteredJobs} /> : null}
+      </div>
     </section>
   )
 }
