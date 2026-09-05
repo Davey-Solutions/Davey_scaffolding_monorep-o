@@ -193,8 +193,8 @@ def test_create_validation_errors(
 
 
 def test_filtering_by_status_and_paid(job_service_url: str, auth_headers: dict[str, str], tracked_job_ids: list[str]) -> None:
-    first = _create_job(job_service_url, auth_headers, tracked_job_ids)
-    second = _create_job(job_service_url, auth_headers, tracked_job_ids)
+    _create_job(job_service_url, auth_headers, tracked_job_ids)
+    _create_job(job_service_url, auth_headers, tracked_job_ids)
 
     response = requests.get(
         f"{job_service_url}/api/v1/jobs",
@@ -215,10 +215,7 @@ def test_filtering_by_status_and_paid(job_service_url: str, auth_headers: dict[s
     )
     assert no_match_response.status_code == 200
     no_match_jobs = no_match_response.json()
-    assert all(job["status"] == "COMPLETED" and job["paid"] is True for job in no_match_jobs)
-    no_match_ids = {job["id"] for job in no_match_jobs}
-    assert first["id"] not in no_match_ids
-    assert second["id"] not in no_match_ids
+    assert no_match_jobs == []
 
 
 @pytest.mark.parametrize(
