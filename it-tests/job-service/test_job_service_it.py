@@ -91,11 +91,22 @@ def tracked_job_ids(auth_headers: dict[str, str], job_service_url: str):
         )
 
 
-def _create_job(job_service_url: str, auth_headers: dict[str, str], tracked_job_ids: list[str]) -> dict:
+def _create_job(
+    job_service_url: str,
+    auth_headers: dict[str, str],
+    tracked_job_ids: list[str],
+    *,
+    status: str | None = None,
+    paid: bool | None = None,
+) -> dict:
     payload = {
         "customerName": f"Customer-{uuid.uuid4()}",
         "siteAddress": f"Site-{uuid.uuid4()}",
     }
+    if status is not None:
+        payload["status"] = status
+    if paid is not None:
+        payload["paid"] = paid
     response = requests.post(
         f"{job_service_url}/api/v1/jobs",
         json=payload,
@@ -144,7 +155,12 @@ def test_job_crud_and_default_status_paid(job_service_url: str, auth_headers: di
 
     update_response = requests.put(
         f"{job_service_url}/api/v1/jobs/{job_id}",
-        json={"customerName": "Updated Customer", "siteAddress": "Updated Site"},
+        json={
+            "customerName": "Updated Customer",
+            "siteAddress": "Updated Site",
+            "status": "COMPLETED",
+            "paid": True,
+        },
         headers=auth_headers,
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
@@ -152,8 +168,8 @@ def test_job_crud_and_default_status_paid(job_service_url: str, auth_headers: di
     updated = update_response.json()
     assert updated["customerName"] == "Updated Customer"
     assert updated["siteAddress"] == "Updated Site"
-    assert updated["status"] == "PENDING"
-    assert updated["paid"] is False
+    assert updated["status"] == "COMPLETED"
+    assert updated["paid"] is True
 
     delete_response = requests.delete(
         f"{job_service_url}/api/v1/jobs/{job_id}",
@@ -193,18 +209,23 @@ def test_create_validation_errors(
 
 
 def test_filtering_by_status_and_paid(job_service_url: str, auth_headers: dict[str, str], tracked_job_ids: list[str]) -> None:
-    _create_job(job_service_url, auth_headers, tracked_job_ids)
-    _create_job(job_service_url, auth_headers, tracked_job_ids)
+    matching_job = _create_job(job_service_url, auth_headers, tracked_job_ids, status="COMPLETED", paid=True)
+    non_matching_one = _create_job(job_service_url, auth_headers, tracked_job_ids, status="COMPLETED", paid=False)
+    non_matching_two = _create_job(job_service_url, auth_headers, tracked_job_ids, status="PENDING", paid=True)
 
-    no_match_response = requests.get(
+    filter_response = requests.get(
         f"{job_service_url}/api/v1/jobs",
         params={"status": "COMPLETED", "paid": "true"},
         headers=auth_headers,
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
-    assert no_match_response.status_code == 200
-    no_match_jobs = no_match_response.json()
-    assert no_match_jobs == []
+    assert filter_response.status_code == 200
+    filtered_jobs = filter_response.json()
+    filtered_ids = {job["id"] for job in filtered_jobs}
+    assert matching_job["id"] in filtered_ids
+    assert non_matching_one["id"] not in filtered_ids
+    assert non_matching_two["id"] not in filtered_ids
+    assert all(job["status"] == "COMPLETED" and job["paid"] is True for job in filtered_jobs)
 
 
 @pytest.mark.parametrize(
