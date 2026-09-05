@@ -61,18 +61,11 @@ jobs:
           distribution: temurin
           cache: maven
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push images with Jib
+      - name: Build images with Jib
         run: >
           ./mvnw --batch-mode --no-transfer-progress
           -pl services/auth-service,services/job-service,gateway
-          package jib:build -DskipTests
+          package jib:dockerBuild -DskipTests
 
       - name: Create .env for docker compose
         run: |
@@ -84,6 +77,25 @@ jobs:
 
       - name: Smoke test — gateway health
         run: curl --fail --retry 5 --retry-delay 3 http://localhost:8080/actuator/health
+
+      - name: Resolve project version
+        if: github.ref == 'refs/heads/main'
+        run: echo "PROJECT_VERSION=$(./mvnw -q -DforceStdout help:evaluate -Dexpression=project.version)" >> "${GITHUB_ENV}"
+
+      - name: Log in to GHCR
+        if: github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish images to GHCR
+        if: github.ref == 'refs/heads/main'
+        run: >
+          ./mvnw --batch-mode --no-transfer-progress
+          -pl services/auth-service,services/job-service,gateway
+          package jib:build -DskipTests -Djib.to.tags=latest,${PROJECT_VERSION},${GITHUB_SHA}
 
       - name: Tear down
         if: always()
