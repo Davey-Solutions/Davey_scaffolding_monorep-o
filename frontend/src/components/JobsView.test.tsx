@@ -77,4 +77,11 @@ describe('JobsView', () => {
     })
     expect(screen.getByText('No jobs match the selected filters.')).toBeInTheDocument()
   })
+
+  it('shows base empty state when no jobs are loaded', () => {
+    render(<JobsView isLoadingJobs={false} jobs={[]} jobsError={null} />)
+
+    expect(screen.getByText('No jobs yet.')).toBeInTheDocument()
+    expect(screen.queryByText('No jobs match the selected filters.')).not.toBeInTheDocument()
+  })
 })

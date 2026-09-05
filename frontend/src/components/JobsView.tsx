@@ -13,6 +13,9 @@ export interface JobsViewProps {
   jobsError: string | null
 }
 
+type StatusFilter = 'ALL' | Job['status']
+type PaidFilter = 'ALL' | 'PAID' | 'UNPAID'
+
 /**
  * Jobs screen shown after a successful login.
  *
@@ -20,8 +23,8 @@ export interface JobsViewProps {
  * @returns the jobs view markup
  */
 export function JobsView(props: JobsViewProps) {
-  const [statusFilter, setStatusFilter] = useState('ALL')
-  const [paidFilter, setPaidFilter] = useState('ALL')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
+  const [paidFilter, setPaidFilter] = useState<PaidFilter>('ALL')
   const statusOptions = useMemo(() => {
     return Array.from(new Set(props.jobs.map((job) => job.status)))
   }, [props.jobs])
@@ -53,7 +56,7 @@ export function JobsView(props: JobsViewProps) {
           <label>
             Status
             <select
-              onChange={(event) => setStatusFilter(event.target.value)}
+              onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
               value={statusFilter}
             >
               <option value="ALL">All statuses</option>
@@ -66,7 +69,10 @@ export function JobsView(props: JobsViewProps) {
           </label>
           <label>
             Paid
-            <select onChange={(event) => setPaidFilter(event.target.value)} value={paidFilter}>
+            <select
+              onChange={(event) => setPaidFilter(event.target.value as PaidFilter)}
+              value={paidFilter}
+            >
               <option value="ALL">All payments</option>
               <option value="PAID">Paid</option>
               <option value="UNPAID">Unpaid</option>
