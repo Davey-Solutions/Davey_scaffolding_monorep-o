@@ -209,6 +209,16 @@ def test_create_validation_errors(
     _assert_validation_problem(response, expected_fields)
 
 
+def test_create_invalid_status_returns_400(job_service_url: str, auth_headers: dict[str, str]) -> None:
+    response = requests.post(
+        f"{job_service_url}/api/v1/jobs",
+        json={"customerName": "Test Customer", "siteAddress": "Test Site", "status": "NOT_A_REAL_STATUS"},
+        headers=auth_headers,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
+    assert response.status_code == 400
+
+
 def test_filtering_by_status_and_paid(job_service_url: str, auth_headers: dict[str, str], tracked_job_ids: list[str]) -> None:
     first_created = _create_job(job_service_url, auth_headers, tracked_job_ids)
     second_created = _create_job(job_service_url, auth_headers, tracked_job_ids)
