@@ -2,8 +2,8 @@
 
 Environment variables (§5.4.2):
   IT_BASE_URL           – gateway base URL (default: http://localhost:8080)
-  IT_JOB_SERVICE_BASE_URL  – job-service base URL (default: http://localhost:8081)
-  IT_AUTH_SERVICE_BASE_URL – auth-service base URL (default: http://localhost:8082)
+  IT_JOB_SERVICE_BASE_URL  – job-service base URL (default: http://localhost:8082)
+  IT_AUTH_SERVICE_BASE_URL – auth-service base URL (default: http://localhost:8081)
   IT_GATEWAY_BASE_URL      – gateway base URL used in per-service suite
                              (default: IT_BASE_URL, then http://localhost:8080)
 """
