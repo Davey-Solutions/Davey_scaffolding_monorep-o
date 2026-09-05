@@ -78,7 +78,7 @@ jobs:
           echo "JWT_SECRET=${JWT_SECRET}" > .env
 
       - name: Start stack
-        run: docker compose up -d --wait --timeout 120
+        run: docker compose up -d --pull never --wait --timeout 120
 
       - name: Smoke test — gateway health
         run: curl --fail --retry 5 --retry-delay 3 http://localhost:8080/actuator/health
