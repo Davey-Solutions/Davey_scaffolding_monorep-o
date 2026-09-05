@@ -76,6 +76,7 @@ describe('JobsView', () => {
       target: { value: 'PENDING' },
     })
     expect(screen.getByText('No jobs match the selected filters.')).toBeInTheDocument()
+    expect(screen.queryByText('Bob')).not.toBeInTheDocument()
   })
 
   it('shows base empty state when no jobs are loaded', () => {

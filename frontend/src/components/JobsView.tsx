@@ -1,4 +1,4 @@
-import type { Job } from '../types/Job'
+import type { Job, JobStatus } from '../types/Job'
 import { useMemo, useState } from 'react'
 
 /**
@@ -13,7 +13,7 @@ export interface JobsViewProps {
   jobsError: string | null
 }
 
-type StatusFilter = 'ALL' | Job['status']
+type StatusFilter = 'ALL' | JobStatus
 type PaidFilter = 'ALL' | 'PAID' | 'UNPAID'
 
 /**
@@ -56,7 +56,9 @@ export function JobsView(props: JobsViewProps) {
           <label>
             Status
             <select
-              onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+              onChange={(event) =>
+                setStatusFilter(parseStatusFilter(event.target.value, statusOptions))
+              }
               value={statusFilter}
             >
               <option value="ALL">All statuses</option>
@@ -70,7 +72,7 @@ export function JobsView(props: JobsViewProps) {
           <label>
             Paid
             <select
-              onChange={(event) => setPaidFilter(event.target.value as PaidFilter)}
+              onChange={(event) => setPaidFilter(parsePaidFilter(event.target.value))}
               value={paidFilter}
             >
               <option value="ALL">All payments</option>
@@ -116,4 +118,28 @@ function JobList({ jobs }: { jobs: Job[] }) {
       ))}
     </ul>
   )
+}
+
+function parseStatusFilter(value: string, statusOptions: JobStatus[]): StatusFilter {
+  if (value === 'ALL') {
+    return value
+  }
+
+  if (isJobStatus(value) && statusOptions.includes(value)) {
+    return value
+  }
+
+  return 'ALL'
+}
+
+function parsePaidFilter(value: string): PaidFilter {
+  if (value === 'PAID' || value === 'UNPAID') {
+    return value
+  }
+
+  return 'ALL'
+}
+
+function isJobStatus(value: string): value is JobStatus {
+  return value === 'PENDING' || value === 'IN_PROGRESS' || value === 'COMPLETED'
 }

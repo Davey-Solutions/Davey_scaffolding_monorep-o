@@ -1,6 +1,11 @@
 /**
  * Minimal job payload rendered by the jobs screen.
  */
+export type JobStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED'
+
+/**
+ * Minimal job payload rendered by the jobs screen.
+ */
 export interface Job {
   /** Unique identifier for the job. */
   id: string
@@ -9,7 +14,7 @@ export interface Job {
   /** Site address shown in the list. */
   siteAddress: string
   /** Current workflow status. */
-  status: string
+  status: JobStatus
   /** Whether the job has been paid. */
   paid: boolean
 }
