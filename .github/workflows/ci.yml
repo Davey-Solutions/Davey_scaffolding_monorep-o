@@ -85,7 +85,9 @@ jobs:
 
       - name: Resolve project version
         if: github.ref == 'refs/heads/main'
-        run: echo "PROJECT_VERSION=$(./mvnw -q -DforceStdout help:evaluate -Dexpression=project.version)" >> "${GITHUB_ENV}"
+        run: |
+          project_version=$(./mvnw --batch-mode -q -Dstyle.color=never -DforceStdout help:evaluate -Dexpression=project.version | tr -d '\r')
+          echo "PROJECT_VERSION=${project_version}" >> "${GITHUB_ENV}"
 
       - name: Log in to GHCR
         if: github.ref == 'refs/heads/main'
