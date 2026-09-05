@@ -33,7 +33,10 @@ def _read_jwt_secret_from_dotenv() -> str | None:
             continue
         key, value = entry.split("=", 1)
         if key.strip() == "JWT_SECRET":
-            return value.strip()
+            stripped = value.strip()
+            if len(stripped) >= 2 and stripped[0] == stripped[-1] and stripped[0] in {"'", '"'}:
+                stripped = stripped[1:-1]
+            return stripped
     return None
 
 
@@ -189,9 +192,11 @@ def test_filtering_by_status_and_paid(job_service_url: str, auth_headers: dict[s
     )
     assert response.status_code == 200
 
-    ids = {job["id"] for job in response.json()}
+    filtered_jobs = response.json()
+    ids = {job["id"] for job in filtered_jobs}
     assert first["id"] in ids
     assert second["id"] in ids
+    assert all(job["status"] == "PENDING" and job["paid"] is False for job in filtered_jobs)
 
     no_match_response = requests.get(
         f"{job_service_url}/api/v1/jobs",
