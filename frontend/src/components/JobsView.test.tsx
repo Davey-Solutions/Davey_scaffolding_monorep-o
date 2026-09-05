@@ -84,4 +84,10 @@ describe('JobsView', () => {
     expect(screen.getByText('No jobs yet.')).toBeInTheDocument()
     expect(screen.queryByText('No jobs match the selected filters.')).not.toBeInTheDocument()
   })
+
+  it('shows a loading state while jobs are being fetched', () => {
+    render(<JobsView isLoadingJobs={true} jobs={[]} jobsError={null} />)
+
+    expect(screen.getByText('Loading jobs…')).toBeInTheDocument()
+  })
 })
