@@ -106,3 +106,13 @@ def test_refresh_flow_returns_new_access_token(auth_service_url: str) -> None:
         expected_ttl_seconds=ACCESS_TOKEN_TTL_SECONDS,
     )
     assert refreshed_access_payload["role"] == "OWNER"
+
+
+def test_refresh_rejects_invalid_token(auth_service_url: str) -> None:
+    response = requests.post(
+        f"{auth_service_url}/api/v1/auth/refresh",
+        json={"refreshToken": "not.a.valid.jwt"},
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
+
+    assert response.status_code == 401
