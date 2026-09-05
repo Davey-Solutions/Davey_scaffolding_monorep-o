@@ -87,9 +87,9 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: |
           raw_version=$(./mvnw --batch-mode -q -Dstyle.color=never -DforceStdout help:evaluate -Dexpression=project.version | tr -d '\r' | awk 'NF && $0 !~ /^\\[/ {line=$0} END {gsub(/^[[:space:]]+|[[:space:]]+$/, "", line); print line}')
-          project_version=$(echo "${raw_version}" | sed -E 's/[^A-Za-z0-9_.-]+/-/g')
-          if [ -z "${project_version}" ]; then
-            echo "Resolved project version is empty after sanitization" >&2
+          project_version=$(echo "${raw_version}" | sed -E 's/[^A-Za-z0-9_.-]+/-/g; s/^[.-]+//; s/[.-]+$//')
+          if ! echo "${project_version}" | grep -Eq '^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$'; then
+            echo "Resolved project version is not a valid Docker tag after sanitization: ${project_version}" >&2
             exit 1
           fi
           short_sha=$(echo "${GITHUB_SHA}" | cut -c1-12)
