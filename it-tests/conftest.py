@@ -21,13 +21,13 @@ def base_url() -> str:
 @pytest.fixture(scope="session")
 def job_service_url() -> str:
     """Base URL for the job-service (per-service suite)."""
-    return os.environ.get("IT_JOB_SERVICE_BASE_URL", "http://localhost:8081")
+    return os.environ.get("IT_JOB_SERVICE_BASE_URL", "http://localhost:8082")
 
 
 @pytest.fixture(scope="session")
 def auth_service_url() -> str:
     """Base URL for the auth-service (per-service suite)."""
-    return os.environ.get("IT_AUTH_SERVICE_BASE_URL", "http://localhost:8082")
+    return os.environ.get("IT_AUTH_SERVICE_BASE_URL", "http://localhost:8081")
 
 
 @pytest.fixture(scope="session")
