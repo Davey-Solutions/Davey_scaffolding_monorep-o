@@ -71,5 +71,10 @@ describe('JobsView', () => {
     })
     expect(screen.getByText('Bob')).toBeInTheDocument()
     expect(screen.queryByText('Cara')).not.toBeInTheDocument()
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Status' }), {
+      target: { value: 'PENDING' },
+    })
+    expect(screen.getByText('No jobs match the selected filters.')).toBeInTheDocument()
   })
 })
