@@ -90,12 +90,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish images to GHCR
+      - name: Publish tested images to GHCR
         if: github.ref == 'refs/heads/main'
-        run: >
-          ./mvnw --batch-mode --no-transfer-progress
-          -pl services/auth-service,services/job-service,gateway
-          package jib:build -DskipTests -Djib.to.tags=latest,${PROJECT_VERSION},${GITHUB_SHA}
+        run: |
+          for image in auth-service job-service gateway; do
+            docker tag "ghcr.io/davey-solutions/${image}:latest" "ghcr.io/davey-solutions/${image}:${GITHUB_SHA}"
+            docker push "ghcr.io/davey-solutions/${image}:latest"
+            docker push "ghcr.io/davey-solutions/${image}:${PROJECT_VERSION}"
+            docker push "ghcr.io/davey-solutions/${image}:${GITHUB_SHA}"
+          done
 
       - name: Tear down
         if: always()
