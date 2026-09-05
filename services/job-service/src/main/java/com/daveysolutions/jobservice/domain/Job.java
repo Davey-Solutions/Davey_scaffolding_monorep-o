@@ -99,12 +99,6 @@ public class Job {
     public Job(CreateJobRequest request) {
         this.customerName = request.customerName();
         this.siteAddress = request.siteAddress();
-        if (request.status() != null) {
-            this.status = request.status();
-        }
-        if (request.paid() != null) {
-            this.paid = request.paid();
-        }
     }
 
     /**
@@ -115,12 +109,6 @@ public class Job {
     public void update(UpdateJobRequest request) {
         this.customerName = request.customerName();
         this.siteAddress = request.siteAddress();
-        if (request.status() != null) {
-            this.status = request.status();
-        }
-        if (request.paid() != null) {
-            this.paid = request.paid();
-        }
     }
 
     /**

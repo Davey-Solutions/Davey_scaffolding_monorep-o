@@ -95,18 +95,11 @@ def _create_job(
     job_service_url: str,
     auth_headers: dict[str, str],
     tracked_job_ids: list[str],
-    *,
-    status: str | None = None,
-    paid: bool | None = None,
 ) -> dict:
     payload = {
         "customerName": f"Customer-{uuid.uuid4()}",
         "siteAddress": f"Site-{uuid.uuid4()}",
     }
-    if status is not None:
-        payload["status"] = status
-    if paid is not None:
-        payload["paid"] = paid
     response = requests.post(
         f"{job_service_url}/api/v1/jobs",
         json=payload,
@@ -155,12 +148,7 @@ def test_job_crud_and_default_status_paid(job_service_url: str, auth_headers: di
 
     update_response = requests.put(
         f"{job_service_url}/api/v1/jobs/{job_id}",
-        json={
-            "customerName": "Updated Customer",
-            "siteAddress": "Updated Site",
-            "status": "COMPLETED",
-            "paid": True,
-        },
+        json={"customerName": "Updated Customer", "siteAddress": "Updated Site"},
         headers=auth_headers,
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
@@ -168,8 +156,8 @@ def test_job_crud_and_default_status_paid(job_service_url: str, auth_headers: di
     updated = update_response.json()
     assert updated["customerName"] == "Updated Customer"
     assert updated["siteAddress"] == "Updated Site"
-    assert updated["status"] == "COMPLETED"
-    assert updated["paid"] is True
+    assert updated["status"] == "PENDING"
+    assert updated["paid"] is False
 
     delete_response = requests.delete(
         f"{job_service_url}/api/v1/jobs/{job_id}",
@@ -209,23 +197,46 @@ def test_create_validation_errors(
 
 
 def test_filtering_by_status_and_paid(job_service_url: str, auth_headers: dict[str, str], tracked_job_ids: list[str]) -> None:
-    matching_job = _create_job(job_service_url, auth_headers, tracked_job_ids, status="COMPLETED", paid=True)
-    non_matching_one = _create_job(job_service_url, auth_headers, tracked_job_ids, status="COMPLETED", paid=False)
-    non_matching_two = _create_job(job_service_url, auth_headers, tracked_job_ids, status="PENDING", paid=True)
+    _create_job(job_service_url, auth_headers, tracked_job_ids)
+    _create_job(job_service_url, auth_headers, tracked_job_ids)
 
-    filter_response = requests.get(
+    matching_response = requests.get(
+        f"{job_service_url}/api/v1/jobs",
+        params={"status": "PENDING", "paid": "false"},
+        headers=auth_headers,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
+    assert matching_response.status_code == 200
+    matching_jobs = matching_response.json()
+    assert len(matching_jobs) >= 2
+    assert all(job["status"] == "PENDING" and job["paid"] is False for job in matching_jobs)
+
+    status_only_mismatch_response = requests.get(
+        f"{job_service_url}/api/v1/jobs",
+        params={"status": "COMPLETED", "paid": "false"},
+        headers=auth_headers,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
+    assert status_only_mismatch_response.status_code == 200
+    assert status_only_mismatch_response.json() == []
+
+    paid_only_mismatch_response = requests.get(
+        f"{job_service_url}/api/v1/jobs",
+        params={"status": "PENDING", "paid": "true"},
+        headers=auth_headers,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
+    assert paid_only_mismatch_response.status_code == 200
+    assert paid_only_mismatch_response.json() == []
+
+    both_mismatch_response = requests.get(
         f"{job_service_url}/api/v1/jobs",
         params={"status": "COMPLETED", "paid": "true"},
         headers=auth_headers,
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
-    assert filter_response.status_code == 200
-    filtered_jobs = filter_response.json()
-    filtered_ids = {job["id"] for job in filtered_jobs}
-    assert matching_job["id"] in filtered_ids
-    assert non_matching_one["id"] not in filtered_ids
-    assert non_matching_two["id"] not in filtered_ids
-    assert all(job["status"] == "COMPLETED" and job["paid"] is True for job in filtered_jobs)
+    assert both_mismatch_response.status_code == 200
+    assert both_mismatch_response.json() == []
 
 
 @pytest.mark.parametrize(
