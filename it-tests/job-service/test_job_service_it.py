@@ -95,11 +95,18 @@ def _create_job(
     job_service_url: str,
     auth_headers: dict[str, str],
     tracked_job_ids: list[str],
+    *,
+    status: str | None = None,
+    paid: bool | None = None,
 ) -> dict:
     payload = {
         "customerName": f"Customer-{uuid.uuid4()}",
         "siteAddress": f"Site-{uuid.uuid4()}",
     }
+    if status is not None:
+        payload["status"] = status
+    if paid is not None:
+        payload["paid"] = paid
     response = requests.post(
         f"{job_service_url}/api/v1/jobs",
         json=payload,
@@ -205,6 +212,8 @@ def test_create_validation_errors(
 def test_filtering_by_status_and_paid(job_service_url: str, auth_headers: dict[str, str], tracked_job_ids: list[str]) -> None:
     first_created = _create_job(job_service_url, auth_headers, tracked_job_ids)
     second_created = _create_job(job_service_url, auth_headers, tracked_job_ids)
+    status_control = _create_job(job_service_url, auth_headers, tracked_job_ids, status="COMPLETED", paid=False)
+    paid_control = _create_job(job_service_url, auth_headers, tracked_job_ids, status="PENDING", paid=True)
 
     matching_response = requests.get(
         f"{job_service_url}/api/v1/jobs",
@@ -219,6 +228,8 @@ def test_filtering_by_status_and_paid(job_service_url: str, auth_headers: dict[s
     matching_ids = {job["id"] for job in matching_jobs}
     assert first_created["id"] in matching_ids
     assert second_created["id"] in matching_ids
+    assert status_control["id"] not in matching_ids
+    assert paid_control["id"] not in matching_ids
 
     status_only_mismatch_response = requests.get(
         f"{job_service_url}/api/v1/jobs",
