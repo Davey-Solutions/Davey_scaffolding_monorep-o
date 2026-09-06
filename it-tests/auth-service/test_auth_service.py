@@ -18,7 +18,7 @@ REQUEST_TIMEOUT_SECONDS = 10
 
 
 @pytest.fixture
-def auth_credentials() -> tuple[str, str]:
+def auth_credentials():
     return (
         os.environ.get(AUTH_EMAIL_ENV, DEFAULT_AUTH_EMAIL),
         os.environ.get(AUTH_PASSWORD_ENV, DEFAULT_AUTH_PASSWORD),
@@ -41,8 +41,8 @@ def _assert_claims(payload: dict, *, expected_sub: str, expected_type: str, expe
 
 
 def test_login_issues_tokens_with_expected_claims_and_expiry(
-    auth_service_url: str, auth_credentials: tuple[str, str]
-) -> None:
+    auth_service_url, auth_credentials
+):
     email, password = auth_credentials
 
     response = requests.post(
@@ -73,7 +73,7 @@ def test_login_issues_tokens_with_expected_claims_and_expiry(
     assert "role" not in refresh_payload
 
 
-def test_login_rejects_wrong_credentials(auth_service_url: str, auth_credentials: tuple[str, str]) -> None:
+def test_login_rejects_wrong_credentials(auth_service_url, auth_credentials):
     email, _ = auth_credentials
 
     response = requests.post(
@@ -86,8 +86,8 @@ def test_login_rejects_wrong_credentials(auth_service_url: str, auth_credentials
 
 
 def test_refresh_flow_returns_new_access_token(
-    auth_service_url: str, auth_credentials: tuple[str, str]
-) -> None:
+    auth_service_url, auth_credentials
+):
     email, password = auth_credentials
     login_response = requests.post(
         f"{auth_service_url}/api/v1/auth/login",
@@ -114,7 +114,7 @@ def test_refresh_flow_returns_new_access_token(
     assert refreshed_access_payload["role"] == "OWNER"
 
 
-def test_refresh_rejects_invalid_token(auth_service_url: str) -> None:
+def test_refresh_rejects_invalid_token(auth_service_url):
     response = requests.post(
         f"{auth_service_url}/api/v1/auth/refresh",
         json={"refreshToken": "not.a.valid.jwt"},
