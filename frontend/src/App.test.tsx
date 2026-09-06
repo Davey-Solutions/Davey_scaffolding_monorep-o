@@ -105,7 +105,32 @@ describe('App', () => {
     await screen.findByRole('heading', { name: 'Job details' })
     await waitFor(() => expect(window.location.hash).toBe('#/jobs/job-1'))
     expect(screen.getByText('1 Scaffold Street')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Back to jobs' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('link', { name: 'Back to jobs' }))
+    await screen.findByRole('heading', { name: 'Jobs' })
+    await waitFor(() => expect(window.location.hash).toBe('#/jobs'))
+  })
+
+  it('shows a fallback when the selected job id does not exist', async () => {
+    window.localStorage.setItem('davey.accessToken', 'access-token')
+    window.localStorage.setItem('davey.refreshToken', 'refresh-token')
+    window.history.replaceState(null, '', '/#/jobs/missing-job')
+
+    global.fetch = vi.fn<typeof fetch>().mockResolvedValue(
+      createJsonResponse([
+        {
+          id: 'job-1',
+          customerName: 'Alice',
+          siteAddress: '1 Scaffold Street',
+          status: 'PENDING',
+          paid: false,
+        },
+      ]),
+    )
+
+    render(<App />)
+
+    await screen.findByText('Job not found.')
+    expect(screen.getByRole('link', { name: 'Back to jobs' })).toHaveAttribute('href', '#/jobs')
   })
 })
 
