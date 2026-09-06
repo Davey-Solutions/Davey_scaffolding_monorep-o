@@ -144,6 +144,13 @@ describe('JobsView', () => {
             status: 'PENDING',
             paid: false,
           },
+          {
+            id: 'job-2',
+            customerName: 'Bob',
+            siteAddress: '2 Scaffold Street',
+            status: 'PENDING',
+            paid: false,
+          },
         ]}
         jobsError={null}
         onDeleteJob={onDeleteJob}
@@ -152,8 +159,10 @@ describe('JobsView', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete job for Alice' }))
     expect(screen.getByRole('button', { name: 'Delete job for Alice' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Delete job for Bob' })).toBeDisabled()
     resolveDelete?.()
     await waitFor(() => expect(screen.getByRole('button', { name: 'Delete job for Alice' })).toBeEnabled())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Delete job for Bob' })).toBeEnabled())
   })
 
   it('shows delete errors after a confirmed delete fails', async () => {
