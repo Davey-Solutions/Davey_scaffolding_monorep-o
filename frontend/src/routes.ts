@@ -35,7 +35,9 @@ export function getJobIdFromRoute(hash: string = window.location.hash) {
     return null
   }
 
-  const encodedId = hash.slice(JOB_DETAIL_ROUTE_PREFIX.length)
+  const routeTail = hash.slice(JOB_DETAIL_ROUTE_PREFIX.length)
+  const [firstSegment = ''] = routeTail.split('/')
+  const [encodedId = ''] = firstSegment.split('?')
 
   if (!encodedId) {
     return null
