@@ -2,6 +2,7 @@
  * Hash route used for the jobs screen.
  */
 export const JOBS_ROUTE = '#/jobs'
+const JOB_DETAIL_ROUTE_PREFIX = `${JOBS_ROUTE}/`
 
 /**
  * Returns whether the current hash targets the jobs screen.
@@ -11,6 +12,63 @@ export const JOBS_ROUTE = '#/jobs'
  */
 export function isJobsRoute(hash: string = window.location.hash) {
   return hash === JOBS_ROUTE
+}
+
+/**
+ * Builds a hash route for a specific job.
+ *
+ * @param jobId job identifier to include in the route
+ * @returns hash route pointing to the job detail screen
+ */
+export function buildJobDetailRoute(jobId: string) {
+  return `${JOB_DETAIL_ROUTE_PREFIX}${encodeURIComponent(jobId)}`
+}
+
+/**
+ * Reads a job id from the current hash route.
+ *
+ * @param hash location hash to inspect
+ * @returns the decoded job id when present, otherwise {@code undefined}
+ */
+export function getJobIdFromRoute(hash: string = window.location.hash) {
+  const routeTail = getRouteTail(hash)
+
+  if (!routeTail) {
+    return undefined
+  }
+
+  const encodedId = getEncodedJobId(routeTail)
+
+  if (!isSinglePathSegment(encodedId)) {
+    return undefined
+  }
+
+  return decodeJobId(encodedId)
+}
+
+function getRouteTail(hash: string) {
+  if (!hash.startsWith(JOB_DETAIL_ROUTE_PREFIX)) {
+    return undefined
+  }
+
+  return hash.slice(JOB_DETAIL_ROUTE_PREFIX.length)
+}
+
+function getEncodedJobId(routeTail: string) {
+  const [encodedId = ''] = routeTail.split('?')
+  return encodedId
+}
+
+function isSinglePathSegment(encodedId: string) {
+  return Boolean(encodedId) && !encodedId.includes('/')
+}
+
+function decodeJobId(encodedId: string) {
+  try {
+    return decodeURIComponent(encodedId)
+  } catch {
+    return undefined
+  }
 }
 
 /**
