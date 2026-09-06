@@ -121,6 +121,7 @@ function JobList(props: {
             </div>
           </dl>
           <button
+            aria-label={`Delete job for ${job.customerName}`}
             className="job-delete-button"
             disabled={props.isDeletingJobId === job.id}
             onClick={() => props.onDeleteJob(job)}

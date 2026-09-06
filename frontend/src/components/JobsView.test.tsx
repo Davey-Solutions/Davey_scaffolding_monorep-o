@@ -118,7 +118,7 @@ describe('JobsView', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete job for Alice' }))
     expect(confirmSpy).toHaveBeenCalledWith('Are you sure you want to delete this job?')
     expect(onDeleteJob).not.toHaveBeenCalled()
   })
@@ -150,8 +150,8 @@ describe('JobsView', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
-    expect(screen.getByRole('button', { name: 'Deleting…' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Delete job for Alice' }))
+    expect(screen.getByRole('button', { name: 'Delete job for Alice' })).toBeDisabled()
     resolveDelete?.()
   })
 
@@ -176,7 +176,7 @@ describe('JobsView', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete job for Alice' }))
     expect(await screen.findByText('Unable to delete job.')).toBeInTheDocument()
     expect(screen.getByText('Alice')).toBeInTheDocument()
   })

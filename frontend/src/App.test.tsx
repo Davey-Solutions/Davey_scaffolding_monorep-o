@@ -104,7 +104,7 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
 
     await screen.findByText('Alice')
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete job for Alice' }))
 
     await waitFor(() => expect(screen.queryByText('Alice')).not.toBeInTheDocument())
     expect(confirmSpy).toHaveBeenCalledWith('Are you sure you want to delete this job?')
@@ -145,7 +145,7 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
 
     await screen.findByText('Alice')
-    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Delete job for Alice' }))
 
     expect(await screen.findByText('Unable to delete job.')).toBeInTheDocument()
     expect(screen.getByText('Alice')).toBeInTheDocument()
