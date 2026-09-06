@@ -32,7 +32,7 @@ type JobFiltersState = {
 export function JobsView(props: JobsViewProps) {
   const [filters, setFilters] = useState<JobFiltersState>({ status: 'ALL', paid: 'ALL' })
   const [deleteError, setDeleteError] = useState<string | null>(null)
-  const [isDeletingJobId, setIsDeletingJobId] = useState<string | null>(null)
+  const [deletingJobIds, setDeletingJobIds] = useState<string[]>([])
   const statusOptions = useMemo(() => getStatusOptions(props.jobs), [props.jobs])
   const filteredJobs = useMemo(() => {
     return props.jobs.filter((job) => matchesFilters(job, filters))
@@ -53,14 +53,14 @@ export function JobsView(props: JobsViewProps) {
     }
 
     setDeleteError(null)
-    setIsDeletingJobId(job.id)
+    setDeletingJobIds((current) => (current.includes(job.id) ? current : [...current, job.id]))
 
     try {
       await props.onDeleteJob(job.id)
     } catch (error: unknown) {
       setDeleteError(error instanceof Error ? error.message : 'Unable to delete job.')
     } finally {
-      setIsDeletingJobId(null)
+      setDeletingJobIds((current) => current.filter((id) => id !== job.id))
     }
   }
 
@@ -88,7 +88,7 @@ export function JobsView(props: JobsViewProps) {
         ) : null}
         {filteredJobs.length > 0 ? (
           <JobList
-            isDeletingJobId={isDeletingJobId}
+            deletingJobIds={deletingJobIds}
             jobs={filteredJobs}
             onDeleteJob={(job) => void handleDeleteJob(job)}
           />
@@ -100,7 +100,7 @@ export function JobsView(props: JobsViewProps) {
 
 function JobList(props: {
   jobs: Job[]
-  isDeletingJobId: string | null
+  deletingJobIds: string[]
   onDeleteJob: (job: Job) => void
 }) {
   return (
@@ -123,11 +123,11 @@ function JobList(props: {
           <button
             aria-label={`Delete job for ${job.customerName}`}
             className="job-delete-button"
-            disabled={props.isDeletingJobId !== null}
+            disabled={props.deletingJobIds.includes(job.id)}
             onClick={() => props.onDeleteJob(job)}
             type="button"
           >
-            {props.isDeletingJobId === job.id ? 'Deleting…' : 'Delete'}
+            {props.deletingJobIds.includes(job.id) ? 'Deleting…' : 'Delete'}
           </button>
         </li>
       ))}

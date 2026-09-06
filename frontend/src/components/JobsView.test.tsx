@@ -159,10 +159,9 @@ describe('JobsView', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete job for Alice' }))
     expect(screen.getByRole('button', { name: 'Delete job for Alice' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Delete job for Bob' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Delete job for Bob' })).toBeEnabled()
     resolveDelete?.()
     await waitFor(() => expect(screen.getByRole('button', { name: 'Delete job for Alice' })).toBeEnabled())
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Delete job for Bob' })).toBeEnabled())
   })
 
   it('shows delete errors after a confirmed delete fails', async () => {
