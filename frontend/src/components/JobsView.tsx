@@ -1,4 +1,5 @@
-import type { Job, JobStatus } from '../types/Job'
+import { JobStatus } from '../types/Job'
+import type { Job } from '../types/Job'
 import { useMemo, useState } from 'react'
 
 /**
@@ -15,6 +16,10 @@ export interface JobsViewProps {
 
 type StatusFilter = 'ALL' | JobStatus
 type PaidFilter = 'ALL' | 'PAID' | 'UNPAID'
+type JobFiltersState = {
+  status: StatusFilter
+  paid: PaidFilter
+}
 
 /**
  * Jobs screen shown after a successful login.
@@ -23,19 +28,11 @@ type PaidFilter = 'ALL' | 'PAID' | 'UNPAID'
  * @returns the jobs view markup
  */
 export function JobsView(props: JobsViewProps) {
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
-  const [paidFilter, setPaidFilter] = useState<PaidFilter>('ALL')
-  const statusOptions = useMemo(() => {
-    return Array.from(new Set(props.jobs.map((job) => job.status)))
-  }, [props.jobs])
+  const [filters, setFilters] = useState<JobFiltersState>({ status: 'ALL', paid: 'ALL' })
+  const statusOptions = useMemo(() => getStatusOptions(props.jobs), [props.jobs])
   const filteredJobs = useMemo(() => {
-    return props.jobs.filter((job) => {
-      const matchesStatus = statusFilter === 'ALL' || job.status === statusFilter
-      const matchesPaid =
-        paidFilter === 'ALL' || (paidFilter === 'PAID' ? job.paid : !job.paid)
-      return matchesStatus && matchesPaid
-    })
-  }, [paidFilter, props.jobs, statusFilter])
+    return props.jobs.filter((job) => matchesFilters(job, filters))
+  }, [filters, props.jobs])
 
   if (props.isLoadingJobs) {
     return <p className="panel">Loading jobs…</p>
@@ -52,35 +49,14 @@ export function JobsView(props: JobsViewProps) {
           <p className="eyebrow">Signed in</p>
           <h1>Jobs</h1>
         </div>
-        <div className="jobs-filters">
-          <label>
-            Status
-            <select
-              onChange={(event) =>
-                setStatusFilter(parseStatusFilter(event.target.value, statusOptions))
-              }
-              value={statusFilter}
-            >
-              <option value="ALL">All statuses</option>
-              {statusOptions.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Paid
-            <select
-              onChange={(event) => setPaidFilter(parsePaidFilter(event.target.value))}
-              value={paidFilter}
-            >
-              <option value="ALL">All payments</option>
-              <option value="PAID">Paid</option>
-              <option value="UNPAID">Unpaid</option>
-            </select>
-          </label>
-        </div>
+        <JobsFilters
+          filters={filters}
+          onPaidFilterChange={(value) => setFilters((current) => ({ ...current, paid: value }))}
+          onStatusFilterChange={(value) =>
+            setFilters((current) => ({ ...current, status: value }))
+          }
+          statusOptions={statusOptions}
+        />
       </header>
       <div aria-live="polite">
         {props.jobs.length === 0 ? <p className="panel">No jobs yet.</p> : null}
@@ -98,12 +74,7 @@ function JobList({ jobs }: { jobs: Job[] }) {
     <ul className="job-list">
       {jobs.map((job) => (
         <li className="job-card" key={job.id}>
-          <div className="job-badges">
-            {job.status === 'COMPLETED' ? <span className="job-badge">Completed</span> : null}
-            {job.paid ? (
-              <span className="job-badge job-badge-paid">Paid</span>
-            ) : null}
-          </div>
+          <JobBadges job={job} />
           <h2>{job.customerName}</h2>
           <p>{job.siteAddress}</p>
           <dl>
@@ -122,12 +93,71 @@ function JobList({ jobs }: { jobs: Job[] }) {
   )
 }
 
+function JobsFilters(props: {
+  filters: JobFiltersState
+  statusOptions: JobStatus[]
+  onStatusFilterChange: (value: StatusFilter) => void
+  onPaidFilterChange: (value: PaidFilter) => void
+}) {
+  return (
+    <div className="jobs-filters">
+      <label>
+        Status
+        <select
+          onChange={(event) =>
+            props.onStatusFilterChange(parseStatusFilter(event.target.value, props.statusOptions))
+          }
+          value={props.filters.status}
+        >
+          <option value="ALL">All statuses</option>
+          {props.statusOptions.map((status) => (
+            <option key={status} value={status}>
+              {status}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Paid
+        <select
+          onChange={(event) => props.onPaidFilterChange(parsePaidFilter(event.target.value))}
+          value={props.filters.paid}
+        >
+          <option value="ALL">All payments</option>
+          <option value="PAID">Paid</option>
+          <option value="UNPAID">Unpaid</option>
+        </select>
+      </label>
+    </div>
+  )
+}
+
+function JobBadges({ job }: { job: Job }) {
+  return (
+    <div className="job-badges">
+      {job.status === JobStatus.COMPLETED ? <span className="job-badge">Completed</span> : null}
+      {job.paid ? <span className="job-badge job-badge-paid">Paid</span> : null}
+    </div>
+  )
+}
+
+function getStatusOptions(jobs: Job[]): JobStatus[] {
+  const presentStatuses = new Set(jobs.map((job) => job.status))
+  return JobStatus.values().filter((status) => presentStatuses.has(status))
+}
+
+function matchesFilters(job: Job, filters: JobFiltersState) {
+  const matchesStatus = filters.status === 'ALL' || job.status === filters.status
+  const matchesPaid = filters.paid === 'ALL' || (filters.paid === 'PAID' ? job.paid : !job.paid)
+  return matchesStatus && matchesPaid
+}
+
 function parseStatusFilter(value: string, statusOptions: JobStatus[]): StatusFilter {
   if (value === 'ALL') {
     return value
   }
 
-  if (isJobStatus(value) && statusOptions.includes(value)) {
+  if (JobStatus.is(value) && statusOptions.includes(value)) {
     return value
   }
 
@@ -140,8 +170,4 @@ function parsePaidFilter(value: string): PaidFilter {
   }
 
   return 'ALL'
-}
-
-function isJobStatus(value: string): value is JobStatus {
-  return value === 'PENDING' || value === 'IN_PROGRESS' || value === 'COMPLETED'
 }
