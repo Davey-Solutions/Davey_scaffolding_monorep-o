@@ -35,6 +35,8 @@ services:
 
   job-service:
     image: ghcr.io/davey-solutions/job-service:latest
+    ports:
+      - "8081:8082"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       JWT_SECRET: ${JWT_SECRET}

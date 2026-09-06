@@ -43,9 +43,94 @@ jobs:
       - name: Build Docker images with Jib
         run: ./mvnw --batch-mode -pl services/auth-service,services/job-service,gateway jib:dockerBuild
 
-  integration:
+  integration-per-service:
     runs-on: ubuntu-latest
     needs: build
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: auth-service
+            modules: services/auth-service
+            compose_services: auth-service postgres
+            test_path: it-tests/auth-service/
+          - suite: job-service
+            modules: services/job-service
+            compose_services: job-service postgres
+            test_path: it-tests/job-service/
+          - suite: gateway
+            modules: "services/auth-service services/job-service gateway"
+            compose_services: gateway postgres
+            test_path: it-tests/gateway/
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install IT dependencies
+        run: python -m pip install -r it-tests/requirements.txt
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+          cache: maven
+
+      - name: Build images with Jib
+        run: |
+          for module in ${{ matrix.modules }}; do
+            image="ghcr.io/davey-solutions/$(basename "${module}")"
+            ./mvnw --batch-mode --no-transfer-progress \
+              -pl "${module}" \
+              package jib:dockerBuild -DskipTests \
+              -Djib.to.image="${image}" \
+              -Djib.to.tags=latest
+          done
+
+      - name: Create .env for docker compose
+        run: |
+          JWT_SECRET=$(openssl rand -hex 32)
+          echo "JWT_SECRET=${JWT_SECRET}" > .env
+
+      - name: Start stack
+        run: docker compose up -d --wait --timeout 120 ${{ matrix.compose_services }}
+
+      - name: Run per-service IT suite
+        env:
+          IT_BASE_URL: http://localhost:8080
+          IT_GATEWAY_BASE_URL: http://localhost:8080
+          IT_AUTH_SERVICE_BASE_URL: http://localhost:8082
+          IT_JOB_SERVICE_BASE_URL: http://localhost:8081
+          IT_AUTH_OWNER_EMAIL: owner@example.com
+          IT_AUTH_OWNER_PASSWORD: owner-password
+        run: python -m pytest ${{ matrix.test_path }}
+
+      - name: Capture compose logs on failure
+        if: failure()
+        run: docker compose logs --no-color > compose-logs-${{ matrix.suite }}.txt || true
+
+      - name: Upload compose logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compose-logs-${{ matrix.suite }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: compose-logs-${{ matrix.suite }}.txt
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
+
+  integration-system:
+    runs-on: ubuntu-latest
+    needs: integration-per-service
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.event_name == 'pull_request'
     permissions:
       contents: read
@@ -53,6 +138,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install IT dependencies
+        run: python -m pip install -r it-tests/requirements.txt
 
       - name: Set up Java 21
         uses: actions/setup-java@v4
@@ -77,11 +170,29 @@ jobs:
           JWT_SECRET=$(openssl rand -hex 32)
           echo "JWT_SECRET=${JWT_SECRET}" > .env
 
-      - name: Start stack
-        run: docker compose up -d --pull never --wait --timeout 120
+      - name: Start full stack
+        run: docker compose up -d --wait --timeout 120
 
-      - name: Smoke test — gateway health
-        run: curl --fail --retry 5 --retry-delay 3 http://localhost:8080/actuator/health
+      - name: Run whole-system IT suite
+        env:
+          IT_BASE_URL: http://localhost:8080
+          IT_GATEWAY_BASE_URL: http://localhost:8080
+          IT_AUTH_SERVICE_BASE_URL: http://localhost:8082
+          IT_JOB_SERVICE_BASE_URL: http://localhost:8081
+          IT_AUTH_OWNER_EMAIL: owner@example.com
+          IT_AUTH_OWNER_PASSWORD: owner-password
+        run: python -m pytest it-tests/system/
+
+      - name: Capture compose logs on failure
+        if: failure()
+        run: docker compose logs --no-color > compose-logs-system.txt || true
+
+      - name: Upload compose logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compose-logs-system-${{ github.run_id }}-${{ github.run_attempt }}
+          path: compose-logs-system.txt
 
       - name: Resolve project version
         if: github.ref == 'refs/heads/main'
