@@ -110,6 +110,47 @@ describe('App', () => {
     expect(confirmSpy).toHaveBeenCalledWith('Are you sure you want to delete this job?')
     expect(fetchMock).toHaveBeenCalledTimes(3)
   })
+
+  it('shows an error when deleting a job fails', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
+      const url = String(input)
+
+      if (url.endsWith('/auth/login')) {
+        return createJsonResponse({
+          accessToken: 'access-token',
+          refreshToken: 'refresh-token',
+        })
+      }
+
+      if (url.endsWith('/jobs/job-1') && init?.method === 'DELETE') {
+        return new Response(null, { status: 500 })
+      }
+
+      return createJsonResponse([
+        {
+          id: 'job-1',
+          customerName: 'Alice',
+          siteAddress: '1 Scaffold Street',
+          status: 'PENDING',
+          paid: false,
+        },
+      ])
+    })
+    global.fetch = fetchMock
+
+    render(<App />)
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'owner@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password-123' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
+
+    await screen.findByText('Alice')
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+    expect(await screen.findByText('Unable to delete job.')).toBeInTheDocument()
+    expect(screen.getByText('Alice')).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
 })
 
 function createJsonResponse(payload: unknown) {

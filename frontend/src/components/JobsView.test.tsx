@@ -122,4 +122,62 @@ describe('JobsView', () => {
     expect(confirmSpy).toHaveBeenCalledWith('Are you sure you want to delete this job?')
     expect(onDeleteJob).not.toHaveBeenCalled()
   })
+
+  it('shows deleting state while a confirmed delete is pending', () => {
+    let resolveDelete: (() => void) | null = null
+    onDeleteJob.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveDelete = resolve
+        }),
+    )
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    render(
+      <JobsView
+        isLoadingJobs={false}
+        jobs={[
+          {
+            id: 'job-1',
+            customerName: 'Alice',
+            siteAddress: '1 Scaffold Street',
+            status: 'PENDING',
+            paid: false,
+          },
+        ]}
+        jobsError={null}
+        onDeleteJob={onDeleteJob}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    expect(screen.getByRole('button', { name: 'Deleting…' })).toBeDisabled()
+    resolveDelete?.()
+  })
+
+  it('shows delete errors after a confirmed delete fails', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    onDeleteJob.mockRejectedValueOnce(new Error('Unable to delete job.'))
+
+    render(
+      <JobsView
+        isLoadingJobs={false}
+        jobs={[
+          {
+            id: 'job-1',
+            customerName: 'Alice',
+            siteAddress: '1 Scaffold Street',
+            status: 'PENDING',
+            paid: false,
+          },
+        ]}
+        jobsError={null}
+        onDeleteJob={onDeleteJob}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    expect(await screen.findByText('Unable to delete job.')).toBeInTheDocument()
+    expect(screen.getByText('Alice')).toBeInTheDocument()
+  })
 })
