@@ -21,3 +21,7 @@ yarn-error.log*
 
 # local env overrides
 .env
+
+# Python test artifacts
+__pycache__/
+*.pyc

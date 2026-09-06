@@ -2,8 +2,8 @@
 
 Environment variables (§5.4.2):
   IT_BASE_URL           – gateway base URL (default: http://localhost:8080)
-  IT_JOB_SERVICE_BASE_URL  – job-service base URL (default: http://localhost:8081)
-  IT_AUTH_SERVICE_BASE_URL – auth-service base URL (default: http://localhost:8082)
+  IT_JOB_SERVICE_BASE_URL  – job-service base URL (default: http://localhost:8082)
+  IT_AUTH_SERVICE_BASE_URL – auth-service base URL (default: http://localhost:8081)
   IT_GATEWAY_BASE_URL      – gateway base URL used in per-service suite
                              (default: IT_BASE_URL, then http://localhost:8080)
 """
@@ -21,13 +21,13 @@ def base_url() -> str:
 @pytest.fixture(scope="session")
 def job_service_url() -> str:
     """Base URL for the job-service (per-service suite)."""
-    return os.environ.get("IT_JOB_SERVICE_BASE_URL", "http://localhost:8081")
+    return os.environ.get("IT_JOB_SERVICE_BASE_URL", "http://localhost:8082")
 
 
 @pytest.fixture(scope="session")
 def auth_service_url() -> str:
     """Base URL for the auth-service (per-service suite)."""
-    return os.environ.get("IT_AUTH_SERVICE_BASE_URL", "http://localhost:8082")
+    return os.environ.get("IT_AUTH_SERVICE_BASE_URL", "http://localhost:8081")
 
 
 @pytest.fixture(scope="session")
