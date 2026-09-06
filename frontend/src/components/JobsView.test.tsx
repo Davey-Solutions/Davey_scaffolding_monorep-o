@@ -26,6 +26,7 @@ describe('JobsView', () => {
 
     expect(screen.getByText('Completed')).toBeInTheDocument()
     expect(screen.getByText('Paid', { selector: '.job-badge-paid' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Alice' })).toHaveAttribute('href', '#/jobs/job-1')
   })
 
   it('filters jobs by status and paid values', () => {
@@ -90,5 +91,30 @@ describe('JobsView', () => {
     render(<JobsView isLoadingJobs={true} jobs={[]} jobsError={null} />)
 
     expect(screen.getByText('Loading jobs…')).toBeInTheDocument()
+  })
+
+  it('renders details for a selected job', () => {
+    render(
+      <JobsView
+        isLoadingJobs={false}
+        jobs={[
+          {
+            id: 'job-1',
+            customerName: 'Alice',
+            siteAddress: '1 Scaffold Street',
+            status: 'IN_PROGRESS',
+            paid: false,
+          },
+        ]}
+        jobsError={null}
+        selectedJobId="job-1"
+      />,
+    )
+
+    expect(screen.getByRole('heading', { name: 'Job details' })).toBeInTheDocument()
+    expect(screen.getByText('1 Scaffold Street')).toBeInTheDocument()
+    expect(screen.getByText('job-1')).toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Status' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to jobs' })).toHaveAttribute('href', '#/jobs')
   })
 })

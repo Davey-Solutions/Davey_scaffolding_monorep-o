@@ -2,6 +2,7 @@
  * Hash route used for the jobs screen.
  */
 export const JOBS_ROUTE = '#/jobs'
+const JOB_DETAIL_ROUTE_PREFIX = `${JOBS_ROUTE}/`
 
 /**
  * Returns whether the current hash targets the jobs screen.
@@ -11,6 +12,40 @@ export const JOBS_ROUTE = '#/jobs'
  */
 export function isJobsRoute(hash: string = window.location.hash) {
   return hash === JOBS_ROUTE
+}
+
+/**
+ * Builds a hash route for a specific job.
+ *
+ * @param jobId job identifier to include in the route
+ * @returns hash route pointing to the job detail screen
+ */
+export function buildJobDetailRoute(jobId: string) {
+  return `${JOB_DETAIL_ROUTE_PREFIX}${encodeURIComponent(jobId)}`
+}
+
+/**
+ * Reads a job id from the current hash route.
+ *
+ * @param hash location hash to inspect
+ * @returns the decoded job id when present, otherwise {@code null}
+ */
+export function getJobIdFromRoute(hash: string = window.location.hash) {
+  if (!hash.startsWith(JOB_DETAIL_ROUTE_PREFIX)) {
+    return null
+  }
+
+  const encodedId = hash.slice(JOB_DETAIL_ROUTE_PREFIX.length)
+
+  if (!encodedId) {
+    return null
+  }
+
+  try {
+    return decodeURIComponent(encodedId)
+  } catch {
+    return null
+  }
 }
 
 /**

@@ -1,6 +1,7 @@
 import { JobStatus } from '../types/Job'
 import type { Job } from '../types/Job'
 import { useMemo, useState } from 'react'
+import { buildJobDetailRoute, JOBS_ROUTE } from '../routes'
 
 /**
  * Props required to render the jobs screen.
@@ -12,6 +13,8 @@ export interface JobsViewProps {
   isLoadingJobs: boolean
   /** Optional error shown when jobs fail to load. */
   jobsError: string | null
+  /** Optional selected job id for detail rendering. */
+  selectedJobId?: string | null
 }
 
 type StatusFilter = 'ALL' | JobStatus
@@ -30,6 +33,10 @@ type JobFiltersState = {
 export function JobsView(props: JobsViewProps) {
   const [filters, setFilters] = useState<JobFiltersState>({ status: 'ALL', paid: 'ALL' })
   const statusOptions = useMemo(() => getStatusOptions(props.jobs), [props.jobs])
+  const selectedJob = useMemo(
+    () => (props.selectedJobId ? props.jobs.find((job) => job.id === props.selectedJobId) ?? null : null),
+    [props.jobs, props.selectedJobId],
+  )
   const filteredJobs = useMemo(() => {
     return props.jobs.filter((job) => matchesFilters(job, filters))
   }, [filters, props.jobs])
@@ -40,6 +47,50 @@ export function JobsView(props: JobsViewProps) {
 
   if (props.jobsError) {
     return <p className="panel panel-error">{props.jobsError}</p>
+  }
+
+  if (props.selectedJobId) {
+    if (!selectedJob) {
+      return (
+        <section className="jobs-view">
+          <p className="panel">Job not found.</p>
+          <p>
+            <a href={JOBS_ROUTE}>Back to jobs</a>
+          </p>
+        </section>
+      )
+    }
+
+    return (
+      <section className="jobs-view">
+        <header className="jobs-header">
+          <div>
+            <p className="eyebrow">Signed in</p>
+            <h1>Job details</h1>
+          </div>
+          <a href={JOBS_ROUTE}>Back to jobs</a>
+        </header>
+        <article className="job-card">
+          <JobBadges job={selectedJob} />
+          <h2>{selectedJob.customerName}</h2>
+          <p>{selectedJob.siteAddress}</p>
+          <dl>
+            <div>
+              <dt>Job ID</dt>
+              <dd>{selectedJob.id}</dd>
+            </div>
+            <div>
+              <dt>Status</dt>
+              <dd>{selectedJob.status}</dd>
+            </div>
+            <div>
+              <dt>Paid</dt>
+              <dd>{selectedJob.paid ? 'Yes' : 'No'}</dd>
+            </div>
+          </dl>
+        </article>
+      </section>
+    )
   }
 
   return (
@@ -75,7 +126,9 @@ function JobList({ jobs }: { jobs: Job[] }) {
       {jobs.map((job) => (
         <li className="job-card" key={job.id}>
           <JobBadges job={job} />
-          <h2>{job.customerName}</h2>
+          <h2>
+            <a href={buildJobDetailRoute(job.id)}>{job.customerName}</a>
+          </h2>
           <p>{job.siteAddress}</p>
           <dl>
             <div>
