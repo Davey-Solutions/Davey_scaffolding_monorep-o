@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { JobsView } from './JobsView'
 
@@ -123,7 +123,7 @@ describe('JobsView', () => {
     expect(onDeleteJob).not.toHaveBeenCalled()
   })
 
-  it('shows deleting state while a confirmed delete is pending', () => {
+  it('shows deleting state while a confirmed delete is pending', async () => {
     let resolveDelete: (() => void) | null = null
     onDeleteJob.mockImplementationOnce(
       () =>
@@ -153,6 +153,7 @@ describe('JobsView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete job for Alice' }))
     expect(screen.getByRole('button', { name: 'Delete job for Alice' })).toBeDisabled()
     resolveDelete?.()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Delete job for Alice' })).toBeEnabled())
   })
 
   it('shows delete errors after a confirmed delete fails', async () => {

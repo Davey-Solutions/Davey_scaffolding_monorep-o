@@ -151,6 +151,48 @@ describe('App', () => {
     expect(screen.getByText('Alice')).toBeInTheDocument()
     expect(fetchMock).toHaveBeenCalledTimes(3)
   })
+
+  it('returns to login when deleting a job returns 401', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
+      const url = String(input)
+
+      if (url.endsWith('/auth/login')) {
+        return createJsonResponse({
+          accessToken: 'access-token',
+          refreshToken: 'refresh-token',
+        })
+      }
+
+      if (url.endsWith('/jobs/job-1') && init?.method === 'DELETE') {
+        return new Response(null, { status: 401 })
+      }
+
+      return createJsonResponse([
+        {
+          id: 'job-1',
+          customerName: 'Alice',
+          siteAddress: '1 Scaffold Street',
+          status: 'PENDING',
+          paid: false,
+        },
+      ])
+    })
+    global.fetch = fetchMock
+
+    render(<App />)
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'owner@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password-123' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
+
+    await screen.findByText('Alice')
+    fireEvent.click(screen.getByRole('button', { name: 'Delete job for Alice' }))
+
+    await screen.findByRole('heading', { name: 'Log in' })
+    expect(screen.getByText('Your session has expired. Please log in again.')).toBeInTheDocument()
+    expect(window.localStorage.getItem('davey.accessToken')).toBeNull()
+    expect(window.localStorage.getItem('davey.refreshToken')).toBeNull()
+  })
 })
 
 function createJsonResponse(payload: unknown) {

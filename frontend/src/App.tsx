@@ -64,8 +64,17 @@ function App() {
   }
 
   async function handleDeleteJob(jobId: string) {
-    await deleteJob(jobId)
-    setJobs((currentJobs) => currentJobs.filter((job) => job.id !== jobId))
+    try {
+      await deleteJob(jobId)
+      setJobs((currentJobs) => currentJobs.filter((job) => job.id !== jobId))
+    } catch (error: unknown) {
+      if (error instanceof SessionExpiredError) {
+        resetSession(setSession, setRoute, setLoginError, error.message)
+        return
+      }
+
+      throw error
+    }
   }
 
   if (route === 'jobs' && session) {
