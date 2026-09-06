@@ -8,9 +8,13 @@ describe('routes', () => {
     expect(getJobIdFromRoute(route)).toBe('job-1')
   })
 
-  it('parses only the first path segment and ignores query text', () => {
+  it('ignores query text when parsing detail routes', () => {
     expect(getJobIdFromRoute('#/jobs/job-1?tab=notes')).toBe('job-1')
-    expect(getJobIdFromRoute('#/jobs/job-1/extra')).toBe('job-1')
+  })
+
+  it('supports ids containing slashes', () => {
+    const route = buildJobDetailRoute('group/job-1')
+    expect(getJobIdFromRoute(route)).toBe('group/job-1')
   })
 
   it('returns null for malformed encoded job ids', () => {
