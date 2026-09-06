@@ -1,4 +1,6 @@
+import { JobStatus } from '../types/Job'
 import type { Job } from '../types/Job'
+import { useMemo, useState } from 'react'
 
 /**
  * Props required to render the jobs screen.
@@ -12,6 +14,13 @@ export interface JobsViewProps {
   jobsError: string | null
 }
 
+type StatusFilter = 'ALL' | JobStatus
+type PaidFilter = 'ALL' | 'PAID' | 'UNPAID'
+type JobFiltersState = {
+  status: StatusFilter
+  paid: PaidFilter
+}
+
 /**
  * Jobs screen shown after a successful login.
  *
@@ -19,6 +28,12 @@ export interface JobsViewProps {
  * @returns the jobs view markup
  */
 export function JobsView(props: JobsViewProps) {
+  const [filters, setFilters] = useState<JobFiltersState>({ status: 'ALL', paid: 'ALL' })
+  const statusOptions = useMemo(() => getStatusOptions(props.jobs), [props.jobs])
+  const filteredJobs = useMemo(() => {
+    return props.jobs.filter((job) => matchesFilters(job, filters))
+  }, [filters, props.jobs])
+
   if (props.isLoadingJobs) {
     return <p className="panel">Loading jobs…</p>
   }
@@ -34,8 +49,22 @@ export function JobsView(props: JobsViewProps) {
           <p className="eyebrow">Signed in</p>
           <h1>Jobs</h1>
         </div>
+        <JobsFilters
+          filters={filters}
+          onPaidFilterChange={(value) => setFilters((current) => ({ ...current, paid: value }))}
+          onStatusFilterChange={(value) =>
+            setFilters((current) => ({ ...current, status: value }))
+          }
+          statusOptions={statusOptions}
+        />
       </header>
-      {props.jobs.length > 0 ? <JobList jobs={props.jobs} /> : <p className="panel">No jobs yet.</p>}
+      <div aria-live="polite">
+        {props.jobs.length === 0 ? <p className="panel">No jobs yet.</p> : null}
+        {props.jobs.length > 0 && filteredJobs.length === 0 ? (
+          <p className="panel">No jobs match the selected filters.</p>
+        ) : null}
+        {filteredJobs.length > 0 ? <JobList jobs={filteredJobs} /> : null}
+      </div>
     </section>
   )
 }
@@ -45,6 +74,7 @@ function JobList({ jobs }: { jobs: Job[] }) {
     <ul className="job-list">
       {jobs.map((job) => (
         <li className="job-card" key={job.id}>
+          <JobBadges job={job} />
           <h2>{job.customerName}</h2>
           <p>{job.siteAddress}</p>
           <dl>
@@ -61,4 +91,83 @@ function JobList({ jobs }: { jobs: Job[] }) {
       ))}
     </ul>
   )
+}
+
+function JobsFilters(props: {
+  filters: JobFiltersState
+  statusOptions: JobStatus[]
+  onStatusFilterChange: (value: StatusFilter) => void
+  onPaidFilterChange: (value: PaidFilter) => void
+}) {
+  return (
+    <div className="jobs-filters">
+      <label>
+        Status
+        <select
+          onChange={(event) =>
+            props.onStatusFilterChange(parseStatusFilter(event.target.value, props.statusOptions))
+          }
+          value={props.filters.status}
+        >
+          <option value="ALL">All statuses</option>
+          {props.statusOptions.map((status) => (
+            <option key={status} value={status}>
+              {status}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Paid
+        <select
+          onChange={(event) => props.onPaidFilterChange(parsePaidFilter(event.target.value))}
+          value={props.filters.paid}
+        >
+          <option value="ALL">All payments</option>
+          <option value="PAID">Paid</option>
+          <option value="UNPAID">Unpaid</option>
+        </select>
+      </label>
+    </div>
+  )
+}
+
+function JobBadges({ job }: { job: Job }) {
+  return (
+    <div className="job-badges">
+      {job.status === JobStatus.COMPLETED ? <span className="job-badge">Completed</span> : null}
+      {job.paid ? <span className="job-badge job-badge-paid">Paid</span> : null}
+    </div>
+  )
+}
+
+function getStatusOptions(jobs: Job[]): JobStatus[] {
+  const presentStatuses = new Set(jobs.map((job) => job.status))
+  return JobStatus.values().filter((status) => presentStatuses.has(status))
+}
+
+function matchesFilters(job: Job, filters: JobFiltersState) {
+  const matchesStatus = filters.status === 'ALL' || job.status === filters.status
+  const matchesPaid = filters.paid === 'ALL' || (filters.paid === 'PAID' ? job.paid : !job.paid)
+  return matchesStatus && matchesPaid
+}
+
+function parseStatusFilter(value: string, statusOptions: JobStatus[]): StatusFilter {
+  if (value === 'ALL') {
+    return value
+  }
+
+  if (JobStatus.is(value) && statusOptions.includes(value)) {
+    return value
+  }
+
+  return 'ALL'
+}
+
+function parsePaidFilter(value: string): PaidFilter {
+  if (value === 'PAID' || value === 'UNPAID') {
+    return value
+  }
+
+  return 'ALL'
 }
