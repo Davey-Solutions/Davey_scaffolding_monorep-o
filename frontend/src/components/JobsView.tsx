@@ -50,47 +50,7 @@ export function JobsView(props: JobsViewProps) {
   }
 
   if (props.selectedJobId) {
-    if (!selectedJob) {
-      return (
-        <section className="jobs-view">
-          <p className="panel">Job not found.</p>
-          <p>
-            <a href={JOBS_ROUTE}>Back to jobs</a>
-          </p>
-        </section>
-      )
-    }
-
-    return (
-      <section className="jobs-view">
-        <header className="jobs-header">
-          <div>
-            <p className="eyebrow">Signed in</p>
-            <h1>Job details</h1>
-          </div>
-          <a href={JOBS_ROUTE}>Back to jobs</a>
-        </header>
-        <article className="job-card">
-          <JobBadges job={selectedJob} />
-          <h2>{selectedJob.customerName}</h2>
-          <p>{selectedJob.siteAddress}</p>
-          <dl>
-            <div>
-              <dt>Job ID</dt>
-              <dd>{selectedJob.id}</dd>
-            </div>
-            <div>
-              <dt>Status</dt>
-              <dd>{selectedJob.status}</dd>
-            </div>
-            <div>
-              <dt>Paid</dt>
-              <dd>{selectedJob.paid ? 'Yes' : 'No'}</dd>
-            </div>
-          </dl>
-        </article>
-      </section>
-    )
+    return selectedJob ? <JobDetailView job={selectedJob} /> : <JobNotFoundView />
   }
 
   return (
@@ -116,6 +76,50 @@ export function JobsView(props: JobsViewProps) {
         ) : null}
         {filteredJobs.length > 0 ? <JobList jobs={filteredJobs} /> : null}
       </div>
+    </section>
+  )
+}
+
+function JobNotFoundView() {
+  return (
+    <section className="jobs-view">
+      <p className="panel">Job not found.</p>
+      <p>
+        <a href={JOBS_ROUTE}>Back to jobs</a>
+      </p>
+    </section>
+  )
+}
+
+function JobDetailView({ job }: { job: Job }) {
+  return (
+    <section className="jobs-view">
+      <header className="jobs-header">
+        <div>
+          <p className="eyebrow">Signed in</p>
+          <h1>Job details</h1>
+        </div>
+        <a href={JOBS_ROUTE}>Back to jobs</a>
+      </header>
+      <article className="job-card">
+        <JobBadges job={job} />
+        <h2>{job.customerName}</h2>
+        <p>{job.siteAddress}</p>
+        <dl>
+          <div>
+            <dt>Job ID</dt>
+            <dd>{job.id}</dd>
+          </div>
+          <div>
+            <dt>Status</dt>
+            <dd>{job.status}</dd>
+          </div>
+          <div>
+            <dt>Paid</dt>
+            <dd>{job.paid ? 'Yes' : 'No'}</dd>
+          </div>
+        </dl>
+      </article>
     </section>
   )
 }

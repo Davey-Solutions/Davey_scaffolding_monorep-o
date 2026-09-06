@@ -31,17 +31,39 @@ export function buildJobDetailRoute(jobId: string) {
  * @returns the decoded job id when present, otherwise {@code null}
  */
 export function getJobIdFromRoute(hash: string = window.location.hash) {
+  const routeTail = getRouteTail(hash)
+
+  if (!routeTail) {
+    return null
+  }
+
+  const encodedId = getEncodedJobId(routeTail)
+
+  if (!isSinglePathSegment(encodedId)) {
+    return null
+  }
+
+  return decodeJobId(encodedId)
+}
+
+function getRouteTail(hash: string) {
   if (!hash.startsWith(JOB_DETAIL_ROUTE_PREFIX)) {
     return null
   }
 
-  const routeTail = hash.slice(JOB_DETAIL_ROUTE_PREFIX.length)
+  return hash.slice(JOB_DETAIL_ROUTE_PREFIX.length)
+}
+
+function getEncodedJobId(routeTail: string) {
   const [encodedId = ''] = routeTail.split('?')
+  return encodedId
+}
 
-  if (!encodedId || encodedId.includes('/')) {
-    return null
-  }
+function isSinglePathSegment(encodedId: string) {
+  return Boolean(encodedId) && !encodedId.includes('/')
+}
 
+function decodeJobId(encodedId: string) {
   try {
     return decodeURIComponent(encodedId)
   } catch {

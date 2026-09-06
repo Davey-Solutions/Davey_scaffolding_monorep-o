@@ -117,4 +117,18 @@ describe('JobsView', () => {
     expect(screen.queryByRole('combobox', { name: 'Status' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Back to jobs' })).toHaveAttribute('href', '#/jobs')
   })
+
+  it('renders not found state for an unknown selected job', () => {
+    render(
+      <JobsView
+        isLoadingJobs={false}
+        jobs={[]}
+        jobsError={null}
+        selectedJobId="missing-job"
+      />,
+    )
+
+    expect(screen.getByText('Job not found.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to jobs' })).toHaveAttribute('href', '#/jobs')
+  })
 })
