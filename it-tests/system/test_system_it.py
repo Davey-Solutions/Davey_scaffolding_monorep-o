@@ -81,10 +81,13 @@ def test_all_health_endpoints_are_green(base_url: str, auth_service_url: str, jo
     _assert_health_is_up(f"{job_service_url}/actuator/health")
 
 
-def test_health_endpoints_are_public(base_url: str, auth_service_url: str, job_service_url: str) -> None:
+def test_health_endpoints_are_public(base_url: str) -> None:
     _assert_health_is_up(f"{base_url}/actuator/health")
-    _assert_health_is_up(f"{auth_service_url}/actuator/health")
-    _assert_health_is_up(f"{job_service_url}/actuator/health")
+    protected_response = requests.get(
+        f"{base_url}/api/v1/jobs",
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
+    assert protected_response.status_code == 401
 
 
 def test_auth_flow_end_to_end_through_gateway(
@@ -154,6 +157,7 @@ def test_job_lifecycle_through_gateway_as_logged_in_user(
     )
     assert list_response.status_code == 200
     listed_jobs = list_response.json()
+    assert isinstance(listed_jobs, list), listed_jobs
     assert all(isinstance(job, dict) for job in listed_jobs), listed_jobs
     assert all("id" in job for job in listed_jobs), listed_jobs
     listed_ids = {job["id"] for job in listed_jobs}
