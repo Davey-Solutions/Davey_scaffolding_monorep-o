@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 
@@ -11,6 +11,7 @@ describe('App', () => {
   })
 
   afterEach(() => {
+    cleanup()
     global.fetch = originalFetch
     vi.restoreAllMocks()
   })
@@ -67,6 +68,47 @@ describe('App', () => {
 
     await screen.findByText('Invalid email or password.')
     expect(window.location.hash).toBe('')
+  })
+
+  it('deletes a job after confirmation', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
+      const url = String(input)
+
+      if (url.endsWith('/auth/login')) {
+        return createJsonResponse({
+          accessToken: 'access-token',
+          refreshToken: 'refresh-token',
+        })
+      }
+
+      if (url.endsWith('/jobs/job-1') && init?.method === 'DELETE') {
+        return new Response(null, { status: 204 })
+      }
+
+      return createJsonResponse([
+        {
+          id: 'job-1',
+          customerName: 'Alice',
+          siteAddress: '1 Scaffold Street',
+          status: 'PENDING',
+          paid: false,
+        },
+      ])
+    })
+    global.fetch = fetchMock
+
+    render(<App />)
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'owner@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password-123' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
+
+    await screen.findByText('Alice')
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+
+    await waitFor(() => expect(screen.queryByText('Alice')).not.toBeInTheDocument())
+    expect(confirmSpy).toHaveBeenCalledWith('Are you sure you want to delete this job?')
+    expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 })
 

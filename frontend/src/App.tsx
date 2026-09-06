@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
-import { loadJobs, login, SessionExpiredError } from './api/apiClient'
+import { deleteJob, loadJobs, login, SessionExpiredError } from './api/apiClient'
 import { StoredSession } from './auth/StoredSession'
 import { JobsView } from './components/JobsView'
 import { LoginView } from './components/LoginView'
@@ -63,10 +63,20 @@ function App() {
     }
   }
 
+  async function handleDeleteJob(jobId: string) {
+    await deleteJob(jobId)
+    setJobs((currentJobs) => currentJobs.filter((job) => job.id !== jobId))
+  }
+
   if (route === 'jobs' && session) {
     return (
       <main className="app-shell">
-        <JobsView isLoadingJobs={isLoadingJobs} jobs={jobs} jobsError={jobsError} />
+        <JobsView
+          isLoadingJobs={isLoadingJobs}
+          jobs={jobs}
+          jobsError={jobsError}
+          onDeleteJob={handleDeleteJob}
+        />
       </main>
     )
   }

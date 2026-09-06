@@ -1,10 +1,14 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { JobsView } from './JobsView'
 
 describe('JobsView', () => {
+  const onDeleteJob = vi.fn(async () => {})
+
   afterEach(() => {
     cleanup()
+    vi.restoreAllMocks()
+    onDeleteJob.mockClear()
   })
 
   it('shows completed and paid badges', () => {
@@ -21,6 +25,7 @@ describe('JobsView', () => {
           },
         ]}
         jobsError={null}
+        onDeleteJob={onDeleteJob}
       />,
     )
 
@@ -56,6 +61,7 @@ describe('JobsView', () => {
           },
         ]}
         jobsError={null}
+        onDeleteJob={onDeleteJob}
       />,
     )
 
@@ -80,15 +86,40 @@ describe('JobsView', () => {
   })
 
   it('shows base empty state when no jobs are loaded', () => {
-    render(<JobsView isLoadingJobs={false} jobs={[]} jobsError={null} />)
+    render(<JobsView isLoadingJobs={false} jobs={[]} jobsError={null} onDeleteJob={onDeleteJob} />)
 
     expect(screen.getByText('No jobs yet.')).toBeInTheDocument()
     expect(screen.queryByText('No jobs match the selected filters.')).not.toBeInTheDocument()
   })
 
   it('shows a loading state while jobs are being fetched', () => {
-    render(<JobsView isLoadingJobs={true} jobs={[]} jobsError={null} />)
+    render(<JobsView isLoadingJobs={true} jobs={[]} jobsError={null} onDeleteJob={onDeleteJob} />)
 
     expect(screen.getByText('Loading jobs…')).toBeInTheDocument()
+  })
+
+  it('deletes a job only after confirmation', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+
+    render(
+      <JobsView
+        isLoadingJobs={false}
+        jobs={[
+          {
+            id: 'job-1',
+            customerName: 'Alice',
+            siteAddress: '1 Scaffold Street',
+            status: 'PENDING',
+            paid: false,
+          },
+        ]}
+        jobsError={null}
+        onDeleteJob={onDeleteJob}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }))
+    expect(confirmSpy).toHaveBeenCalledWith('Are you sure you want to delete this job?')
+    expect(onDeleteJob).not.toHaveBeenCalled()
   })
 })

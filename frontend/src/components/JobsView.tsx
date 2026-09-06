@@ -12,6 +12,8 @@ export interface JobsViewProps {
   isLoadingJobs: boolean
   /** Optional error shown when jobs fail to load. */
   jobsError: string | null
+  /** Deletes a job by id. */
+  onDeleteJob: (jobId: string) => Promise<void>
 }
 
 type StatusFilter = 'ALL' | JobStatus
@@ -29,6 +31,8 @@ type JobFiltersState = {
  */
 export function JobsView(props: JobsViewProps) {
   const [filters, setFilters] = useState<JobFiltersState>({ status: 'ALL', paid: 'ALL' })
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [isDeletingJobId, setIsDeletingJobId] = useState<string | null>(null)
   const statusOptions = useMemo(() => getStatusOptions(props.jobs), [props.jobs])
   const filteredJobs = useMemo(() => {
     return props.jobs.filter((job) => matchesFilters(job, filters))
@@ -40,6 +44,24 @@ export function JobsView(props: JobsViewProps) {
 
   if (props.jobsError) {
     return <p className="panel panel-error">{props.jobsError}</p>
+  }
+
+  async function handleDeleteJob(job: Job) {
+    const confirmed = window.confirm('Are you sure you want to delete this job?')
+    if (!confirmed) {
+      return
+    }
+
+    setDeleteError(null)
+    setIsDeletingJobId(job.id)
+
+    try {
+      await props.onDeleteJob(job.id)
+    } catch (error: unknown) {
+      setDeleteError(error instanceof Error ? error.message : 'Unable to delete job.')
+    } finally {
+      setIsDeletingJobId(null)
+    }
   }
 
   return (
@@ -59,20 +81,31 @@ export function JobsView(props: JobsViewProps) {
         />
       </header>
       <div aria-live="polite">
+        {deleteError ? <p className="panel panel-error">{deleteError}</p> : null}
         {props.jobs.length === 0 ? <p className="panel">No jobs yet.</p> : null}
         {props.jobs.length > 0 && filteredJobs.length === 0 ? (
           <p className="panel">No jobs match the selected filters.</p>
         ) : null}
-        {filteredJobs.length > 0 ? <JobList jobs={filteredJobs} /> : null}
+        {filteredJobs.length > 0 ? (
+          <JobList
+            isDeletingJobId={isDeletingJobId}
+            jobs={filteredJobs}
+            onDeleteJob={(job) => void handleDeleteJob(job)}
+          />
+        ) : null}
       </div>
     </section>
   )
 }
 
-function JobList({ jobs }: { jobs: Job[] }) {
+function JobList(props: {
+  jobs: Job[]
+  isDeletingJobId: string | null
+  onDeleteJob: (job: Job) => void
+}) {
   return (
     <ul className="job-list">
-      {jobs.map((job) => (
+      {props.jobs.map((job) => (
         <li className="job-card" key={job.id}>
           <JobBadges job={job} />
           <h2>{job.customerName}</h2>
@@ -87,6 +120,14 @@ function JobList({ jobs }: { jobs: Job[] }) {
               <dd>{job.paid ? 'Yes' : 'No'}</dd>
             </div>
           </dl>
+          <button
+            className="job-delete-button"
+            disabled={props.isDeletingJobId === job.id}
+            onClick={() => props.onDeleteJob(job)}
+            type="button"
+          >
+            {props.isDeletingJobId === job.id ? 'Deleting…' : 'Delete'}
+          </button>
         </li>
       ))}
     </ul>
