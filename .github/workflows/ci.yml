@@ -46,7 +46,6 @@ jobs:
   integration-per-service:
     runs-on: ubuntu-latest
     needs: build
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.event_name == 'pull_request'
     permissions:
       contents: read
     strategy:
@@ -55,16 +54,25 @@ jobs:
         include:
           - suite: auth-service
             modules: services/auth-service
-            compose_services: auth-service postgres
             test_path: it-tests/auth-service/
+            it_base_url: http://localhost:8082
+            it_gateway_base_url: http://localhost:8082
+            it_auth_service_base_url: http://localhost:8082
+            it_job_service_base_url: http://localhost:18082
           - suite: job-service
             modules: services/job-service
-            compose_services: job-service postgres
             test_path: it-tests/job-service/
+            it_base_url: http://localhost:18082
+            it_gateway_base_url: http://localhost:18082
+            it_auth_service_base_url: http://localhost:8082
+            it_job_service_base_url: http://localhost:18082
           - suite: gateway
             modules: "services/auth-service services/job-service gateway"
-            compose_services: gateway postgres
             test_path: it-tests/gateway/
+            it_base_url: http://localhost:8080
+            it_gateway_base_url: http://localhost:8080
+            it_auth_service_base_url: http://localhost:8082
+            it_job_service_base_url: http://localhost:18082
 
     steps:
       - uses: actions/checkout@v4
@@ -100,15 +108,18 @@ jobs:
           JWT_SECRET=$(openssl rand -hex 32)
           echo "JWT_SECRET=${JWT_SECRET}" > .env
 
+      - name: Pull postgres image
+        run: docker pull postgres:16
+
       - name: Start stack
-        run: docker compose up -d --wait --timeout 120 ${{ matrix.compose_services }}
+        run: docker compose up -d --pull never --wait --timeout 120
 
       - name: Run per-service IT suite
         env:
-          IT_BASE_URL: http://localhost:8080
-          IT_GATEWAY_BASE_URL: http://localhost:8080
-          IT_AUTH_SERVICE_BASE_URL: http://localhost:8082
-          IT_JOB_SERVICE_BASE_URL: http://localhost:8081
+          IT_BASE_URL: ${{ matrix.it_base_url }}
+          IT_GATEWAY_BASE_URL: ${{ matrix.it_gateway_base_url }}
+          IT_AUTH_SERVICE_BASE_URL: ${{ matrix.it_auth_service_base_url }}
+          IT_JOB_SERVICE_BASE_URL: ${{ matrix.it_job_service_base_url }}
           IT_AUTH_OWNER_EMAIL: owner@example.com
           IT_AUTH_OWNER_PASSWORD: owner-password
         run: python -m pytest ${{ matrix.test_path }}
@@ -131,10 +142,8 @@ jobs:
   integration-system:
     runs-on: ubuntu-latest
     needs: integration-per-service
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.event_name == 'pull_request'
     permissions:
       contents: read
-      packages: write
 
     steps:
       - uses: actions/checkout@v4
@@ -170,15 +179,18 @@ jobs:
           JWT_SECRET=$(openssl rand -hex 32)
           echo "JWT_SECRET=${JWT_SECRET}" > .env
 
+      - name: Pull postgres image
+        run: docker pull postgres:16
+
       - name: Start full stack
-        run: docker compose up -d --wait --timeout 120
+        run: docker compose up -d --pull never --wait --timeout 120
 
       - name: Run whole-system IT suite
         env:
           IT_BASE_URL: http://localhost:8080
           IT_GATEWAY_BASE_URL: http://localhost:8080
           IT_AUTH_SERVICE_BASE_URL: http://localhost:8082
-          IT_JOB_SERVICE_BASE_URL: http://localhost:8081
+          IT_JOB_SERVICE_BASE_URL: http://localhost:18082
           IT_AUTH_OWNER_EMAIL: owner@example.com
           IT_AUTH_OWNER_PASSWORD: owner-password
         run: python -m pytest it-tests/system/
@@ -194,8 +206,56 @@ jobs:
           name: compose-logs-system-${{ github.run_id }}-${{ github.run_attempt }}
           path: compose-logs-system.txt
 
-      - name: Resolve project version
+      - name: Save tested images
         if: github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p tested-images
+          for image in auth-service job-service gateway; do
+            docker save "ghcr.io/davey-solutions/${image}:latest" -o "tested-images/${image}.tar"
+          done
+
+      - name: Upload tested images
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tested-images-${{ github.run_id }}
+          path: tested-images/
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
+
+  publish-images:
+    runs-on: ubuntu-latest
+    needs: integration-system
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download tested images
+        uses: actions/download-artifact@v4
+        with:
+          name: tested-images-${{ github.run_id }}
+          path: tested-images
+
+      - name: Load tested images into Docker
+        run: |
+          for image_tar in tested-images/*.tar; do
+            docker load -i "${image_tar}"
+          done
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+          cache: maven
+
+      - name: Resolve project version
         run: |
           raw_version=$(./mvnw --batch-mode -q -Dstyle.color=never -DforceStdout help:evaluate -Dexpression=project.version | tr -d '\r' | awk 'NF && $0 !~ /^\\[/ {line=$0} END {gsub(/^[[:space:]]+|[[:space:]]+$/, "", line); print line}')
           project_version=$(echo "${raw_version}" | sed -E 's/[^A-Za-z0-9_.-]+/-/g; s/^[.-]+//; s/[.-]+$//')
@@ -208,7 +268,6 @@ jobs:
           echo "COMMIT_SHA_TAG=${short_sha}" >> "${GITHUB_ENV}"
 
       - name: Log in to GHCR
-        if: github.ref == 'refs/heads/main'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -216,7 +275,6 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish tested images to GHCR
-        if: github.ref == 'refs/heads/main'
         run: |
           for image in auth-service job-service gateway; do
             docker tag "ghcr.io/davey-solutions/${image}:latest" "ghcr.io/davey-solutions/${image}:${PROJECT_VERSION}"
@@ -225,7 +283,3 @@ jobs:
             docker push "ghcr.io/davey-solutions/${image}:${PROJECT_VERSION}"
             docker push "ghcr.io/davey-solutions/${image}:${COMMIT_SHA_TAG}"
           done
-
-      - name: Tear down
-        if: always()
-        run: docker compose down -v
