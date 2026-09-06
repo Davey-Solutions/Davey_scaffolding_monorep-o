@@ -12,6 +12,11 @@ DEFAULT_AUTH_PASSWORD = "owner-password"
 REQUEST_TIMEOUT_SECONDS = 10
 
 
+def _auth_header(token: str) -> dict[str, str]:
+    scheme = "Bearer"
+    return {"Authorization": f"{scheme} {token}"}
+
+
 @pytest.fixture(scope="session")
 def auth_credentials() -> tuple[str, str]:
     return (
@@ -39,7 +44,9 @@ def access_token(gateway_url: str, auth_credentials: tuple[str, str]) -> str:
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
     assert login_response.status_code == 200, login_response.text
-    return login_response.json()["accessToken"]
+    body = login_response.json()
+    assert "accessToken" in body, body
+    return body["accessToken"]
 
 
 def test_gateway_health_endpoint_is_healthy(gateway_url: str) -> None:
@@ -47,6 +54,22 @@ def test_gateway_health_endpoint_is_healthy(gateway_url: str) -> None:
 
     assert response.status_code == 200
     assert response.json().get("status") == "UP"
+
+
+def test_gateway_routes_login_to_auth_service(
+    gateway_url: str, auth_credentials: tuple[str, str]
+) -> None:
+    email, password = auth_credentials
+    response = requests.post(
+        f"{gateway_url}/api/v1/auth/login",
+        json={"email": email, "password": password},
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert "accessToken" in body
+    assert "refreshToken" in body
 
 
 def test_gateway_rejects_missing_jwt_on_protected_route(gateway_url: str) -> None:
@@ -58,7 +81,7 @@ def test_gateway_rejects_missing_jwt_on_protected_route(gateway_url: str) -> Non
 def test_gateway_rejects_invalid_jwt_on_protected_route(gateway_url: str) -> None:
     response = requests.get(
         f"{gateway_url}/api/v1/jobs",
-        headers={"Authorization": "******"},
+        headers=_auth_header("not.a.valid.jwt"),
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
 
@@ -70,7 +93,7 @@ def test_gateway_routes_to_auth_and_job_services(
 ) -> None:
     jobs_response = requests.get(
         f"{gateway_url}/api/v1/jobs",
-        headers={"Authorization": f"******"},
+        headers=_auth_header(access_token),
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
 
