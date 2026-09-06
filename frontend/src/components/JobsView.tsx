@@ -14,7 +14,7 @@ export interface JobsViewProps {
   /** Optional error shown when jobs fail to load. */
   jobsError: string | null
   /** Optional selected job id for detail rendering. */
-  selectedJobId?: string | null
+  selectedJobId?: string
 }
 
 type StatusFilter = 'ALL' | JobStatus

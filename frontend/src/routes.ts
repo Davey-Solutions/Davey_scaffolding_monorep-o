@@ -28,19 +28,19 @@ export function buildJobDetailRoute(jobId: string) {
  * Reads a job id from the current hash route.
  *
  * @param hash location hash to inspect
- * @returns the decoded job id when present, otherwise {@code null}
+ * @returns the decoded job id when present, otherwise {@code undefined}
  */
 export function getJobIdFromRoute(hash: string = window.location.hash) {
   const routeTail = getRouteTail(hash)
 
   if (!routeTail) {
-    return null
+    return undefined
   }
 
   const encodedId = getEncodedJobId(routeTail)
 
   if (!isSinglePathSegment(encodedId)) {
-    return null
+    return undefined
   }
 
   return decodeJobId(encodedId)
@@ -48,7 +48,7 @@ export function getJobIdFromRoute(hash: string = window.location.hash) {
 
 function getRouteTail(hash: string) {
   if (!hash.startsWith(JOB_DETAIL_ROUTE_PREFIX)) {
-    return null
+    return undefined
   }
 
   return hash.slice(JOB_DETAIL_ROUTE_PREFIX.length)
@@ -67,7 +67,7 @@ function decodeJobId(encodedId: string) {
   try {
     return decodeURIComponent(encodedId)
   } catch {
-    return null
+    return undefined
   }
 }
 

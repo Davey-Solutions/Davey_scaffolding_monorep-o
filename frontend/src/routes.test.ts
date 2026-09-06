@@ -18,10 +18,10 @@ describe('routes', () => {
   })
 
   it('rejects routes with additional path segments', () => {
-    expect(getJobIdFromRoute('#/jobs/job-1/extra')).toBeNull()
+    expect(getJobIdFromRoute('#/jobs/job-1/extra')).toBeUndefined()
   })
 
-  it('returns null for malformed encoded job ids', () => {
-    expect(getJobIdFromRoute('#/jobs/%E0%A4%A')).toBeNull()
+  it('returns undefined for malformed encoded job ids', () => {
+    expect(getJobIdFromRoute('#/jobs/%E0%A4%A')).toBeUndefined()
   })
 })

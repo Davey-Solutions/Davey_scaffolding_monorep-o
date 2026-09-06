@@ -34,7 +34,7 @@ function App() {
   const [isLoadingJobs, setIsLoadingJobs] = useState(false)
   const [routeHash, setRouteHash] = useState(() => getInitialRoute(initialSession))
   const selectedJobId = getJobIdFromRoute(routeHash)
-  const showJobsView = isJobsRoute(routeHash) || selectedJobId !== null
+  const showJobsView = isJobsRoute(routeHash) || selectedJobId !== undefined
 
   useEffect(() => registerHashChangeHandler(setRouteHash), [])
   useEffect(() => syncRouteWithSession(session, setRouteHash), [session])
@@ -92,7 +92,7 @@ function App() {
 }
 
 function getInitialRoute(session: StoredSession | null) {
-  const isKnownJobsRoute = isJobsRoute() || getJobIdFromRoute() !== null
+  const isKnownJobsRoute = isJobsRoute() || getJobIdFromRoute() !== undefined
 
   if (isKnownJobsRoute && session) {
     return window.location.hash
@@ -111,7 +111,7 @@ function syncRouteWithSession(
   session: StoredSession | null,
   setRouteHash: (routeHash: string) => void,
 ) {
-  const isKnownJobsRoute = isJobsRoute() || getJobIdFromRoute() !== null
+  const isKnownJobsRoute = isJobsRoute() || getJobIdFromRoute() !== undefined
 
   if (!isKnownJobsRoute || session) {
     return
@@ -126,7 +126,7 @@ function loadJobsForRoute(
   session: StoredSession | null,
   actions: JobsLoaderActions,
 ) {
-  const shouldLoadJobs = isJobsRoute(routeHash) || getJobIdFromRoute(routeHash) !== null
+  const shouldLoadJobs = isJobsRoute(routeHash) || getJobIdFromRoute(routeHash) !== undefined
 
   if (!shouldLoadJobs || !session) {
     return
