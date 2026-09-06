@@ -75,6 +75,23 @@ def _assert_health_is_up(url: str) -> None:
     assert body.get("status") == "UP", body
 
 
+def _create_job(base_url: str, headers: dict[str, str], tracked_job_ids: list[str]) -> dict:
+    create_response = requests.post(
+        f"{base_url}/api/v1/jobs",
+        json={
+            "customerName": f"System IT Customer {uuid.uuid4()}",
+            "siteAddress": f"System IT Site {uuid.uuid4()}",
+        },
+        headers=headers,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
+    assert create_response.status_code == 201, create_response.text
+    created = create_response.json()
+    assert "id" in created, created
+    tracked_job_ids.append(created["id"])
+    return created
+
+
 def test_all_health_endpoints_are_green(base_url: str, auth_service_url: str, job_service_url: str) -> None:
     _assert_health_is_up(f"{base_url}/actuator/health")
     _assert_health_is_up(f"{auth_service_url}/actuator/health")
@@ -123,21 +140,8 @@ def test_job_lifecycle_through_gateway_as_logged_in_user(
     base_url: str, access_token: str, tracked_job_ids: list[str]
 ) -> None:
     headers = _auth_header(access_token)
-
-    create_response = requests.post(
-        f"{base_url}/api/v1/jobs",
-        json={
-            "customerName": f"System IT Customer {uuid.uuid4()}",
-            "siteAddress": f"System IT Site {uuid.uuid4()}",
-        },
-        headers=headers,
-        timeout=REQUEST_TIMEOUT_SECONDS,
-    )
-    assert create_response.status_code == 201, create_response.text
-    created = create_response.json()
-    assert "id" in created, created
+    created = _create_job(base_url, headers, tracked_job_ids)
     job_id = created["id"]
-    tracked_job_ids.append(job_id)
     assert created["status"] == "PENDING"
     assert created["paid"] is False
 
@@ -180,6 +184,29 @@ def test_job_lifecycle_through_gateway_as_logged_in_user(
     assert updated["siteAddress"] == "System IT Updated Site"
     assert updated["status"] == "COMPLETED"
     assert updated["paid"] is True
+
+    delete_response = requests.delete(
+        f"{base_url}/api/v1/jobs/{job_id}",
+        headers=headers,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
+    assert delete_response.status_code == 204
+    tracked_job_ids.remove(job_id)
+
+    missing_response = requests.get(
+        f"{base_url}/api/v1/jobs/{job_id}",
+        headers=headers,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
+    assert missing_response.status_code == 404
+
+
+def test_deleted_job_is_not_readable_through_gateway(
+    base_url: str, access_token: str, tracked_job_ids: list[str]
+) -> None:
+    headers = _auth_header(access_token)
+    created = _create_job(base_url, headers, tracked_job_ids)
+    job_id = created["id"]
 
     delete_response = requests.delete(
         f"{base_url}/api/v1/jobs/{job_id}",
