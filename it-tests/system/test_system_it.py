@@ -146,7 +146,9 @@ def test_job_lifecycle_through_gateway_as_logged_in_user(
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
     assert list_response.status_code == 200
-    listed_ids = {job["id"] for job in list_response.json()}
+    listed_jobs = list_response.json()
+    assert all("id" in job for job in listed_jobs), listed_jobs
+    listed_ids = {job["id"] for job in listed_jobs}
     assert job_id in listed_ids
 
     update_response = requests.put(
