@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 import os
 import uuid
 
@@ -55,7 +56,7 @@ def access_token(base_url: str, auth_credentials: tuple[str, str]) -> str:
 
 
 @pytest.fixture()
-def tracked_job_ids(base_url: str, access_token: str):
+def tracked_job_ids(base_url: str, access_token: str) -> Iterator[list[str]]:
     created_ids: list[str] = []
     yield created_ids
     headers = _auth_header(access_token)
@@ -75,6 +76,12 @@ def _assert_health_is_up(url: str) -> None:
 
 
 def test_all_health_endpoints_are_green(base_url: str, auth_service_url: str, job_service_url: str) -> None:
+    _assert_health_is_up(f"{base_url}/actuator/health")
+    _assert_health_is_up(f"{auth_service_url}/actuator/health")
+    _assert_health_is_up(f"{job_service_url}/actuator/health")
+
+
+def test_health_endpoints_are_public(base_url: str, auth_service_url: str, job_service_url: str) -> None:
     _assert_health_is_up(f"{base_url}/actuator/health")
     _assert_health_is_up(f"{auth_service_url}/actuator/health")
     _assert_health_is_up(f"{job_service_url}/actuator/health")
@@ -147,6 +154,7 @@ def test_job_lifecycle_through_gateway_as_logged_in_user(
     )
     assert list_response.status_code == 200
     listed_jobs = list_response.json()
+    assert all(isinstance(job, dict) for job in listed_jobs), listed_jobs
     assert all("id" in job for job in listed_jobs), listed_jobs
     listed_ids = {job["id"] for job in listed_jobs}
     assert job_id in listed_ids
