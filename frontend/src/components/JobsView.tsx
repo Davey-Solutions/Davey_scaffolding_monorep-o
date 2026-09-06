@@ -53,14 +53,14 @@ export function JobsView(props: JobsViewProps) {
     }
 
     setDeleteError(null)
-    setDeletingJobIds((current) => (current.includes(job.id) ? current : [...current, job.id]))
+    setDeletingJobIds((current) => addDeletingJobId(current, job.id))
 
     try {
       await props.onDeleteJob(job.id)
     } catch (error: unknown) {
       setDeleteError(error instanceof Error ? error.message : 'Unable to delete job.')
     } finally {
-      setDeletingJobIds((current) => current.filter((id) => id !== job.id))
+      setDeletingJobIds((current) => removeDeletingJobId(current, job.id))
     }
   }
 
@@ -212,4 +212,16 @@ function parsePaidFilter(value: string): PaidFilter {
   }
 
   return 'ALL'
+}
+
+function addDeletingJobId(currentDeletingJobIds: string[], jobId: string) {
+  if (currentDeletingJobIds.includes(jobId)) {
+    return currentDeletingJobIds
+  }
+
+  return [...currentDeletingJobIds, jobId]
+}
+
+function removeDeletingJobId(currentDeletingJobIds: string[], jobId: string) {
+  return currentDeletingJobIds.filter((id) => id !== jobId)
 }
