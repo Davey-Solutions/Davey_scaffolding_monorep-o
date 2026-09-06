@@ -17,6 +17,10 @@ describe('routes', () => {
     expect(getJobIdFromRoute(route)).toBe('group/job-1')
   })
 
+  it('rejects routes with additional path segments', () => {
+    expect(getJobIdFromRoute('#/jobs/job-1/extra')).toBeNull()
+  })
+
   it('returns null for malformed encoded job ids', () => {
     expect(getJobIdFromRoute('#/jobs/%E0%A4%A')).toBeNull()
   })
