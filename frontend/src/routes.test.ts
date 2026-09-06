@@ -12,4 +12,8 @@ describe('routes', () => {
     expect(getJobIdFromRoute('#/jobs/job-1?tab=notes')).toBe('job-1')
     expect(getJobIdFromRoute('#/jobs/job-1/extra')).toBe('job-1')
   })
+
+  it('returns null for malformed encoded job ids', () => {
+    expect(getJobIdFromRoute('#/jobs/%E0%A4%A')).toBeNull()
+  })
 })
