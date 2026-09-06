@@ -10,8 +10,6 @@ import requests
 
 AUTH_EMAIL_ENV = "IT_AUTH_OWNER_EMAIL"
 AUTH_PASSWORD_ENV = "IT_AUTH_OWNER_PASSWORD"
-DEFAULT_AUTH_EMAIL = "owner@example.com"
-DEFAULT_AUTH_PASSWORD = "owner-password"
 REQUEST_TIMEOUT_SECONDS = 10
 
 
@@ -22,23 +20,22 @@ def _auth_header(token: str) -> dict[str, str]:
 
 @pytest.fixture(scope="session")
 def auth_credentials() -> tuple[str, str]:
-    return (
-        os.environ.get(AUTH_EMAIL_ENV, DEFAULT_AUTH_EMAIL),
-        os.environ.get(AUTH_PASSWORD_ENV, DEFAULT_AUTH_PASSWORD),
-    )
+    email = os.environ.get(AUTH_EMAIL_ENV)
+    password = os.environ.get(AUTH_PASSWORD_ENV)
+    if not email or not password:
+        pytest.skip(f"Set {AUTH_EMAIL_ENV} and {AUTH_PASSWORD_ENV} to run system ITs")
+    return (email, password)
 
 
 @pytest.fixture(scope="session", autouse=True)
 def gateway_is_running(base_url: str) -> None:
     try:
-        response = requests.get(
+        requests.get(
             f"{base_url}/actuator/health",
             timeout=REQUEST_TIMEOUT_SECONDS,
         )
     except requests.RequestException as exc:
         pytest.skip(f"Gateway is not reachable at {base_url}: {exc}")
-    if response.status_code != 200:
-        pytest.skip(f"Gateway health endpoint at {base_url} returned {response.status_code}")
 
 
 @pytest.fixture
