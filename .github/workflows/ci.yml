@@ -61,18 +61,16 @@ jobs:
           distribution: temurin
           cache: maven
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push images with Jib
-        run: >
-          ./mvnw --batch-mode --no-transfer-progress
-          -pl services/auth-service,services/job-service,gateway
-          package jib:build -DskipTests
+      - name: Build images with Jib
+        run: |
+          for module in services/auth-service services/job-service gateway; do
+            image="ghcr.io/davey-solutions/$(basename "${module}")"
+            ./mvnw --batch-mode --no-transfer-progress \
+              -pl "${module}" \
+              package jib:dockerBuild -DskipTests \
+              -Djib.to.image="${image}" \
+              -Djib.to.tags=latest
+          done
 
       - name: Create .env for docker compose
         run: |
@@ -80,10 +78,42 @@ jobs:
           echo "JWT_SECRET=${JWT_SECRET}" > .env
 
       - name: Start stack
-        run: docker compose up -d --wait --timeout 120
+        run: docker compose up -d --pull never --wait --timeout 120
 
       - name: Smoke test — gateway health
         run: curl --fail --retry 5 --retry-delay 3 http://localhost:8080/actuator/health
+
+      - name: Resolve project version
+        if: github.ref == 'refs/heads/main'
+        run: |
+          raw_version=$(./mvnw --batch-mode -q -Dstyle.color=never -DforceStdout help:evaluate -Dexpression=project.version | tr -d '\r' | awk 'NF && $0 !~ /^\\[/ {line=$0} END {gsub(/^[[:space:]]+|[[:space:]]+$/, "", line); print line}')
+          project_version=$(echo "${raw_version}" | sed -E 's/[^A-Za-z0-9_.-]+/-/g; s/^[.-]+//; s/[.-]+$//')
+          if ! echo "${project_version}" | grep -Eq '^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$'; then
+            echo "Resolved project version is not a valid Docker tag after sanitization: ${project_version}" >&2
+            exit 1
+          fi
+          short_sha=$(echo "${GITHUB_SHA}" | cut -c1-12)
+          echo "PROJECT_VERSION=${project_version}" >> "${GITHUB_ENV}"
+          echo "COMMIT_SHA_TAG=${short_sha}" >> "${GITHUB_ENV}"
+
+      - name: Log in to GHCR
+        if: github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish tested images to GHCR
+        if: github.ref == 'refs/heads/main'
+        run: |
+          for image in auth-service job-service gateway; do
+            docker tag "ghcr.io/davey-solutions/${image}:latest" "ghcr.io/davey-solutions/${image}:${PROJECT_VERSION}"
+            docker tag "ghcr.io/davey-solutions/${image}:latest" "ghcr.io/davey-solutions/${image}:${COMMIT_SHA_TAG}"
+            docker push "ghcr.io/davey-solutions/${image}:latest"
+            docker push "ghcr.io/davey-solutions/${image}:${PROJECT_VERSION}"
+            docker push "ghcr.io/davey-solutions/${image}:${COMMIT_SHA_TAG}"
+          done
 
       - name: Tear down
         if: always()
