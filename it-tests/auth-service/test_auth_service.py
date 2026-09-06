@@ -4,6 +4,7 @@ import base64
 import json
 import os
 
+import pytest
 import requests
 
 AUTH_EMAIL_ENV = "IT_AUTH_OWNER_EMAIL"
@@ -16,7 +17,8 @@ TTL_TOLERANCE_SECONDS = 5
 REQUEST_TIMEOUT_SECONDS = 10
 
 
-def _auth_credentials() -> tuple[str, str]:
+@pytest.fixture
+def auth_credentials() -> tuple[str, str]:
     return (
         os.environ.get(AUTH_EMAIL_ENV, DEFAULT_AUTH_EMAIL),
         os.environ.get(AUTH_PASSWORD_ENV, DEFAULT_AUTH_PASSWORD),
@@ -38,8 +40,10 @@ def _assert_claims(payload: dict, *, expected_sub: str, expected_type: str, expe
     assert abs((payload["exp"] - payload["iat"]) - expected_ttl_seconds) <= TTL_TOLERANCE_SECONDS
 
 
-def test_login_issues_tokens_with_expected_claims_and_expiry(auth_service_url: str) -> None:
-    email, password = _auth_credentials()
+def test_login_issues_tokens_with_expected_claims_and_expiry(
+    auth_service_url: str, auth_credentials: tuple[str, str]
+) -> None:
+    email, password = auth_credentials
 
     response = requests.post(
         f"{auth_service_url}/api/v1/auth/login",
@@ -69,8 +73,8 @@ def test_login_issues_tokens_with_expected_claims_and_expiry(auth_service_url: s
     assert "role" not in refresh_payload
 
 
-def test_login_rejects_wrong_credentials(auth_service_url: str) -> None:
-    email, _ = _auth_credentials()
+def test_login_rejects_wrong_credentials(auth_service_url: str, auth_credentials: tuple[str, str]) -> None:
+    email, _ = auth_credentials
 
     response = requests.post(
         f"{auth_service_url}/api/v1/auth/login",
@@ -81,8 +85,10 @@ def test_login_rejects_wrong_credentials(auth_service_url: str) -> None:
     assert response.status_code == 401
 
 
-def test_refresh_flow_returns_new_access_token(auth_service_url: str) -> None:
-    email, password = _auth_credentials()
+def test_refresh_flow_returns_new_access_token(
+    auth_service_url: str, auth_credentials: tuple[str, str]
+) -> None:
+    email, password = auth_credentials
     login_response = requests.post(
         f"{auth_service_url}/api/v1/auth/login",
         json={"email": email, "password": password},
