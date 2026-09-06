@@ -95,18 +95,11 @@ def _create_job(
     job_service_url: str,
     auth_headers: dict[str, str],
     tracked_job_ids: list[str],
-    *,
-    status: str | None = None,
-    paid: bool | None = None,
 ) -> dict:
     payload = {
         "customerName": f"Customer-{uuid.uuid4()}",
         "siteAddress": f"Site-{uuid.uuid4()}",
     }
-    if status is not None:
-        payload["status"] = status
-    if paid is not None:
-        payload["paid"] = paid
     response = requests.post(
         f"{job_service_url}/api/v1/jobs",
         json=payload,
@@ -118,6 +111,35 @@ def _create_job(
     body = response.json()
     tracked_job_ids.append(body["id"])
     return body
+
+
+def _update_job(
+    job_service_url: str,
+    auth_headers: dict[str, str],
+    job: dict,
+    *,
+    customer_name: str | None = None,
+    site_address: str | None = None,
+    status: str | None = None,
+    paid: bool | None = None,
+) -> dict:
+    payload: dict[str, object] = {
+        "customerName": customer_name or job["customerName"],
+        "siteAddress": site_address or job["siteAddress"],
+    }
+    if status is not None:
+        payload["status"] = status
+    if paid is not None:
+        payload["paid"] = paid
+
+    response = requests.put(
+        f"{job_service_url}/api/v1/jobs/{job['id']}",
+        json=payload,
+        headers=auth_headers,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
+    assert response.status_code == 200, response.text
+    return response.json()
 
 
 def _assert_validation_problem(response: requests.Response, expected_fields: list[str]) -> None:
@@ -209,10 +231,13 @@ def test_create_validation_errors(
     _assert_validation_problem(response, expected_fields)
 
 
-def test_create_invalid_status_returns_400(job_service_url: str, auth_headers: dict[str, str]) -> None:
-    response = requests.post(
-        f"{job_service_url}/api/v1/jobs",
-        json={"customerName": "Test Customer", "siteAddress": "Test Site", "status": "NOT_A_REAL_STATUS"},
+def test_update_invalid_status_returns_400(
+    job_service_url: str, auth_headers: dict[str, str], tracked_job_ids: list[str]
+) -> None:
+    created = _create_job(job_service_url, auth_headers, tracked_job_ids)
+    response = requests.put(
+        f"{job_service_url}/api/v1/jobs/{created['id']}",
+        json={"customerName": created["customerName"], "siteAddress": created["siteAddress"], "status": "NOT_A_REAL_STATUS"},
         headers=auth_headers,
         timeout=REQUEST_TIMEOUT_SECONDS,
     )
@@ -222,8 +247,11 @@ def test_create_invalid_status_returns_400(job_service_url: str, auth_headers: d
 def test_filtering_by_status_and_paid(job_service_url: str, auth_headers: dict[str, str], tracked_job_ids: list[str]) -> None:
     first_created = _create_job(job_service_url, auth_headers, tracked_job_ids)
     second_created = _create_job(job_service_url, auth_headers, tracked_job_ids)
-    status_control = _create_job(job_service_url, auth_headers, tracked_job_ids, status="COMPLETED", paid=False)
-    paid_control = _create_job(job_service_url, auth_headers, tracked_job_ids, status="PENDING", paid=True)
+    status_control = _create_job(job_service_url, auth_headers, tracked_job_ids)
+    paid_control = _create_job(job_service_url, auth_headers, tracked_job_ids)
+
+    _update_job(job_service_url, auth_headers, status_control, status="COMPLETED")
+    _update_job(job_service_url, auth_headers, paid_control, paid=True)
 
     matching_response = requests.get(
         f"{job_service_url}/api/v1/jobs",
@@ -273,6 +301,24 @@ def test_filtering_by_status_and_paid(job_service_url: str, auth_headers: dict[s
     both_mismatch_ids = {job["id"] for job in both_mismatch_response.json()}
     assert first_created["id"] not in both_mismatch_ids
     assert second_created["id"] not in both_mismatch_ids
+
+
+def test_update_status_and_paid_persists(job_service_url: str, auth_headers: dict[str, str], tracked_job_ids: list[str]) -> None:
+    created = _create_job(job_service_url, auth_headers, tracked_job_ids)
+
+    updated = _update_job(job_service_url, auth_headers, created, status="COMPLETED", paid=True)
+    assert updated["status"] == "COMPLETED"
+    assert updated["paid"] is True
+
+    fetched = requests.get(
+        f"{job_service_url}/api/v1/jobs/{created['id']}",
+        headers=auth_headers,
+        timeout=REQUEST_TIMEOUT_SECONDS,
+    )
+    assert fetched.status_code == 200
+    fetched_body = fetched.json()
+    assert fetched_body["status"] == "COMPLETED"
+    assert fetched_body["paid"] is True
 
 
 @pytest.mark.parametrize(
