@@ -30,12 +30,14 @@ def auth_credentials() -> tuple[str, str]:
 @pytest.fixture(scope="session", autouse=True)
 def gateway_is_running(base_url: str) -> None:
     try:
-        requests.get(
+        response = requests.get(
             f"{base_url}/actuator/health",
             timeout=REQUEST_TIMEOUT_SECONDS,
         )
     except requests.RequestException as exc:
         pytest.skip(f"Gateway is not reachable at {base_url}: {exc}")
+    if response.status_code != 200:
+        pytest.skip(f"Gateway health endpoint at {base_url} returned {response.status_code}")
 
 
 @pytest.fixture
@@ -123,6 +125,7 @@ def test_job_lifecycle_through_gateway_as_logged_in_user(
     )
     assert create_response.status_code == 201, create_response.text
     created = create_response.json()
+    assert "id" in created, created
     job_id = created["id"]
     tracked_job_ids.append(job_id)
     assert created["status"] == "PENDING"
