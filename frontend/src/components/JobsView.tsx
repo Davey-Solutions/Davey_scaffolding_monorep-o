@@ -56,9 +56,7 @@ export function JobsView(props: JobsViewProps) {
     setDeletingJobIds((current) => addDeletingJobId(current, job.id))
 
     try {
-      await props.onDeleteJob(job.id)
-    } catch (error: unknown) {
-      setDeleteError(error instanceof Error ? error.message : 'Unable to delete job.')
+      await tryDeleteJob(job.id, props.onDeleteJob, setDeleteError)
     } finally {
       setDeletingJobIds((current) => removeDeletingJobId(current, job.id))
     }
@@ -224,4 +222,16 @@ function addDeletingJobId(currentDeletingJobIds: string[], jobId: string) {
 
 function removeDeletingJobId(currentDeletingJobIds: string[], jobId: string) {
   return currentDeletingJobIds.filter((id) => id !== jobId)
+}
+
+async function tryDeleteJob(
+  jobId: string,
+  onDeleteJob: (jobId: string) => Promise<void>,
+  setDeleteError: (message: string | null) => void,
+) {
+  try {
+    await onDeleteJob(jobId)
+  } catch (error: unknown) {
+    setDeleteError(error instanceof Error ? error.message : 'Unable to delete job.')
+  }
 }
