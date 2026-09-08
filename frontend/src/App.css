@@ -178,6 +178,22 @@
   color: var(--text-h);
 }
 
+.job-delete-button {
+  margin-top: 16px;
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: transparent;
+  color: #b91c1c;
+  font: inherit;
+  cursor: pointer;
+}
+
+.job-delete-button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
 @media (max-width: 720px) {
   .app-shell {
     padding: 16px;

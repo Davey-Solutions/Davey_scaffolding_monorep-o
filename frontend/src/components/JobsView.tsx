@@ -13,6 +13,8 @@ export interface JobsViewProps {
   isLoadingJobs: boolean
   /** Optional error shown when jobs fail to load. */
   jobsError: string | null
+  /** Deletes a job by id. */
+  onDeleteJob: (jobId: string) => Promise<void>
   /** Optional selected job id for detail rendering. */
   selectedJobId?: string
 }
@@ -32,6 +34,8 @@ type JobFiltersState = {
  */
 export function JobsView(props: JobsViewProps) {
   const [filters, setFilters] = useState<JobFiltersState>({ status: 'ALL', paid: 'ALL' })
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deletingJobIds, setDeletingJobIds] = useState<string[]>([])
   const statusOptions = useMemo(() => getStatusOptions(props.jobs), [props.jobs])
   const selectedJob = useMemo(
     () => (props.selectedJobId ? props.jobs.find((job) => job.id === props.selectedJobId) ?? null : null),
@@ -47,6 +51,22 @@ export function JobsView(props: JobsViewProps) {
 
   if (props.jobsError) {
     return <p className="panel panel-error">{props.jobsError}</p>
+  }
+
+  async function handleDeleteJob(job: Job) {
+    const confirmed = window.confirm('Are you sure you want to delete this job?')
+    if (!confirmed) {
+      return
+    }
+
+    setDeleteError(null)
+    setDeletingJobIds((current) => addDeletingJobId(current, job.id))
+
+    try {
+      await tryDeleteJob(job.id, props.onDeleteJob, setDeleteError)
+    } finally {
+      setDeletingJobIds((current) => removeDeletingJobId(current, job.id))
+    }
   }
 
   if (props.selectedJobId) {
@@ -70,11 +90,18 @@ export function JobsView(props: JobsViewProps) {
         />
       </header>
       <div aria-live="polite">
+        {deleteError ? <p className="panel panel-error">{deleteError}</p> : null}
         {props.jobs.length === 0 ? <p className="panel">No jobs yet.</p> : null}
         {props.jobs.length > 0 && filteredJobs.length === 0 ? (
           <p className="panel">No jobs match the selected filters.</p>
         ) : null}
-        {filteredJobs.length > 0 ? <JobList jobs={filteredJobs} /> : null}
+        {filteredJobs.length > 0 ? (
+          <JobList
+            deletingJobIds={deletingJobIds}
+            jobs={filteredJobs}
+            onDeleteJob={(job) => void handleDeleteJob(job)}
+          />
+        ) : null}
       </div>
     </section>
   )
@@ -124,10 +151,14 @@ function JobDetailView({ job }: { job: Job }) {
   )
 }
 
-function JobList({ jobs }: { jobs: Job[] }) {
+function JobList(props: {
+  jobs: Job[]
+  deletingJobIds: string[]
+  onDeleteJob: (job: Job) => void
+}) {
   return (
     <ul className="job-list">
-      {jobs.map((job) => (
+      {props.jobs.map((job) => (
         <li className="job-card" key={job.id}>
           <JobBadges job={job} />
           <h2>
@@ -144,6 +175,15 @@ function JobList({ jobs }: { jobs: Job[] }) {
               <dd>{job.paid ? 'Yes' : 'No'}</dd>
             </div>
           </dl>
+          <button
+            aria-label={`Delete job for ${job.customerName}`}
+            className="job-delete-button"
+            disabled={props.deletingJobIds.includes(job.id)}
+            onClick={() => props.onDeleteJob(job)}
+            type="button"
+          >
+            {props.deletingJobIds.includes(job.id) ? 'Deleting…' : 'Delete'}
+          </button>
         </li>
       ))}
     </ul>
@@ -227,4 +267,28 @@ function parsePaidFilter(value: string): PaidFilter {
   }
 
   return 'ALL'
+}
+
+function addDeletingJobId(currentDeletingJobIds: string[], jobId: string) {
+  if (currentDeletingJobIds.includes(jobId)) {
+    return currentDeletingJobIds
+  }
+
+  return [...currentDeletingJobIds, jobId]
+}
+
+function removeDeletingJobId(currentDeletingJobIds: string[], jobId: string) {
+  return currentDeletingJobIds.filter((id) => id !== jobId)
+}
+
+async function tryDeleteJob(
+  jobId: string,
+  onDeleteJob: (jobId: string) => Promise<void>,
+  setDeleteError: (message: string | null) => void,
+) {
+  try {
+    await onDeleteJob(jobId)
+  } catch (error: unknown) {
+    setDeleteError(error instanceof Error ? error.message : 'Unable to delete job.')
+  }
 }

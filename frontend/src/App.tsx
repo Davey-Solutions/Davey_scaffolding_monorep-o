@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
-import { loadJobs, login, SessionExpiredError } from './api/apiClient'
+import { deleteJob, loadJobs, login, SessionExpiredError } from './api/apiClient'
 import { StoredSession } from './auth/StoredSession'
 import { JobsView } from './components/JobsView'
 import { LoginView } from './components/LoginView'
@@ -60,6 +60,20 @@ function App() {
     }
   }
 
+  async function handleDeleteJob(jobId: string) {
+    try {
+      await deleteJob(jobId)
+      setJobs((currentJobs) => currentJobs.filter((job) => job.id !== jobId))
+    } catch (error: unknown) {
+      if (error instanceof SessionExpiredError) {
+        resetSession(setSession, setRouteHash, setLoginError, error.message)
+        return
+      }
+
+      throw error
+    }
+  }
+
   if (showJobsView && session) {
     return (
       <main className="app-shell">
@@ -67,6 +81,7 @@ function App() {
           isLoadingJobs={isLoadingJobs}
           jobs={jobs}
           jobsError={jobsError}
+          onDeleteJob={handleDeleteJob}
           selectedJobId={selectedJobId}
         />
       </main>
@@ -81,11 +96,11 @@ function App() {
         loginError={loginError}
         onEmailChange={setEmail}
         onPasswordChange={setPassword}
+        password={password}
         onSubmit={(event) => {
           event.preventDefault()
           void handleSubmit()
         }}
-        password={password}
       />
     </main>
   )

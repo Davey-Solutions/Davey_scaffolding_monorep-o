@@ -38,6 +38,21 @@ export async function loadJobs() {
   return parseJobsResponse(response)
 }
 
+/**
+ * Deletes a job by id.
+ *
+ * @param jobId id of the job to delete
+ */
+export async function deleteJob(jobId: string) {
+  const response = await sendRequest(`/jobs/${encodeURIComponent(jobId)}`, {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    throw createDeleteJobError(response.status)
+  }
+}
+
 async function postJson(path: string, body: unknown) {
   return sendRequest(path, {
     method: 'POST',
@@ -110,4 +125,16 @@ function createJobsError(status: number) {
   }
 
   return new Error('Unable to load jobs.')
+}
+
+function createDeleteJobError(status: number) {
+  if (status === 401) {
+    return new SessionExpiredError()
+  }
+
+  if (status === 404) {
+    return new Error('Job no longer exists.')
+  }
+
+  return new Error('Unable to delete job.')
 }
