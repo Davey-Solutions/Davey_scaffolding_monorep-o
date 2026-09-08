@@ -70,6 +70,69 @@ describe('App', () => {
     expect(window.location.hash).toBe('')
   })
 
+  it('navigates from the jobs list to a job detail view', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) => {
+      const url = String(input)
+
+      if (url.endsWith('/auth/login')) {
+        return createJsonResponse({
+          accessToken: 'access-token',
+          refreshToken: 'refresh-token',
+        })
+      }
+
+      return createJsonResponse([
+        {
+          id: 'job-1',
+          customerName: 'Alice',
+          siteAddress: '1 Scaffold Street',
+          status: 'PENDING',
+          paid: false,
+        },
+      ])
+    })
+
+    global.fetch = fetchMock
+
+    render(<App />)
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'owner@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password-123' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
+
+    const detailsLink = await screen.findByRole('link', { name: 'Alice' })
+    fireEvent.click(detailsLink)
+
+    await screen.findByRole('heading', { name: 'Job details' })
+    await waitFor(() => expect(window.location.hash).toBe('#/jobs/job-1'))
+    expect(screen.getByText('1 Scaffold Street')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('link', { name: 'Back to jobs' }))
+    await screen.findByRole('heading', { name: 'Jobs' })
+    await waitFor(() => expect(window.location.hash).toBe('#/jobs'))
+  })
+
+  it('shows a fallback when the selected job id does not exist', async () => {
+    window.localStorage.setItem('davey.accessToken', 'access-token')
+    window.localStorage.setItem('davey.refreshToken', 'refresh-token')
+    window.history.replaceState(null, '', '/#/jobs/missing-job')
+
+    global.fetch = vi.fn<typeof fetch>().mockResolvedValue(
+      createJsonResponse([
+        {
+          id: 'job-1',
+          customerName: 'Alice',
+          siteAddress: '1 Scaffold Street',
+          status: 'PENDING',
+          paid: false,
+        },
+      ]),
+    )
+
+    render(<App />)
+
+    await screen.findByText('Job not found.')
+    expect(screen.getByRole('link', { name: 'Back to jobs' })).toHaveAttribute('href', '#/jobs')
+  })
+
   it('deletes a job after confirmation', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
@@ -96,6 +159,7 @@ describe('App', () => {
         },
       ])
     })
+
     global.fetch = fetchMock
 
     render(<App />)

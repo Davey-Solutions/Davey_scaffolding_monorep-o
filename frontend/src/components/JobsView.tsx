@@ -1,6 +1,7 @@
 import { JobStatus } from '../types/Job'
 import type { Job } from '../types/Job'
 import { useMemo, useState } from 'react'
+import { buildJobDetailRoute, JOBS_ROUTE } from '../routes'
 
 /**
  * Props required to render the jobs screen.
@@ -14,6 +15,8 @@ export interface JobsViewProps {
   jobsError: string | null
   /** Deletes a job by id. */
   onDeleteJob: (jobId: string) => Promise<void>
+  /** Optional selected job id for detail rendering. */
+  selectedJobId?: string
 }
 
 type StatusFilter = 'ALL' | JobStatus
@@ -34,6 +37,10 @@ export function JobsView(props: JobsViewProps) {
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deletingJobIds, setDeletingJobIds] = useState<string[]>([])
   const statusOptions = useMemo(() => getStatusOptions(props.jobs), [props.jobs])
+  const selectedJob = useMemo(
+    () => (props.selectedJobId ? props.jobs.find((job) => job.id === props.selectedJobId) ?? null : null),
+    [props.jobs, props.selectedJobId],
+  )
   const filteredJobs = useMemo(() => {
     return props.jobs.filter((job) => matchesFilters(job, filters))
   }, [filters, props.jobs])
@@ -60,6 +67,10 @@ export function JobsView(props: JobsViewProps) {
     } finally {
       setDeletingJobIds((current) => removeDeletingJobId(current, job.id))
     }
+  }
+
+  if (props.selectedJobId) {
+    return selectedJob ? <JobDetailView job={selectedJob} /> : <JobNotFoundView />
   }
 
   return (
@@ -96,6 +107,50 @@ export function JobsView(props: JobsViewProps) {
   )
 }
 
+function JobNotFoundView() {
+  return (
+    <section className="jobs-view">
+      <p className="panel">Job not found.</p>
+      <p>
+        <a href={JOBS_ROUTE}>Back to jobs</a>
+      </p>
+    </section>
+  )
+}
+
+function JobDetailView({ job }: { job: Job }) {
+  return (
+    <section className="jobs-view">
+      <header className="jobs-header">
+        <div>
+          <p className="eyebrow">Signed in</p>
+          <h1>Job details</h1>
+        </div>
+        <a href={JOBS_ROUTE}>Back to jobs</a>
+      </header>
+      <article className="job-card">
+        <JobBadges job={job} />
+        <h2>{job.customerName}</h2>
+        <p>{job.siteAddress}</p>
+        <dl>
+          <div>
+            <dt>Job ID</dt>
+            <dd>{job.id}</dd>
+          </div>
+          <div>
+            <dt>Status</dt>
+            <dd>{job.status}</dd>
+          </div>
+          <div>
+            <dt>Paid</dt>
+            <dd>{job.paid ? 'Yes' : 'No'}</dd>
+          </div>
+        </dl>
+      </article>
+    </section>
+  )
+}
+
 function JobList(props: {
   jobs: Job[]
   deletingJobIds: string[]
@@ -106,7 +161,9 @@ function JobList(props: {
       {props.jobs.map((job) => (
         <li className="job-card" key={job.id}>
           <JobBadges job={job} />
-          <h2>{job.customerName}</h2>
+          <h2>
+            <a href={buildJobDetailRoute(job.id)}>{job.customerName}</a>
+          </h2>
           <p>{job.siteAddress}</p>
           <dl>
             <div>

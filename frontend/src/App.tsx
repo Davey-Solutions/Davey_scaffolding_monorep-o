@@ -4,13 +4,8 @@ import { deleteJob, loadJobs, login, SessionExpiredError } from './api/apiClient
 import { StoredSession } from './auth/StoredSession'
 import { JobsView } from './components/JobsView'
 import { LoginView } from './components/LoginView'
-import { JOBS_ROUTE, isJobsRoute, navigateTo } from './routes'
+import { getJobIdFromRoute, JOBS_ROUTE, isJobsRoute, navigateTo } from './routes'
 import type { Job } from './types/Job'
-
-/**
- * In-app route names used by the single-screen frontend.
- */
-type RouteName = 'jobs' | 'login'
 
 /**
  * State update callbacks used while loading jobs.
@@ -37,25 +32,27 @@ function App() {
   const [jobsError, setJobsError] = useState<string | null>(null)
   const [loginError, setLoginError] = useState<string | null>(null)
   const [isLoadingJobs, setIsLoadingJobs] = useState(false)
-  const [route, setRoute] = useState<RouteName>(() => getInitialRoute(initialSession))
+  const [routeHash, setRouteHash] = useState(() => getInitialRoute(initialSession))
+  const selectedJobId = getJobIdFromRoute(routeHash)
+  const showJobsView = isJobsRoute(routeHash) || selectedJobId !== undefined
 
-  useEffect(() => registerHashChangeHandler(setRoute), [])
-  useEffect(() => syncRouteWithSession(session, setRoute), [session])
+  useEffect(() => registerHashChangeHandler(setRouteHash), [])
+  useEffect(() => syncRouteWithSession(session, setRouteHash), [session])
   useEffect(() => {
-    return loadJobsForRoute(route, session, {
+    return loadJobsForRoute(routeHash, session, {
       setIsLoadingJobs,
       setJobsError,
       setJobs,
-      onSessionExpired: (message) => resetSession(setSession, setRoute, setLoginError, message),
+      onSessionExpired: (message) => resetSession(setSession, setRouteHash, setLoginError, message),
     })
-  }, [route, session])
+  }, [routeHash, session])
 
   async function handleSubmit() {
     setIsSubmitting(true)
     setLoginError(null)
 
     try {
-      await completeLogin(email, password, setSession, setPassword, setRoute)
+      await completeLogin(email, password, setSession, setPassword, setRouteHash)
     } catch (error: unknown) {
       setLoginError(error instanceof Error ? error.message : 'Login failed.')
     } finally {
@@ -69,7 +66,7 @@ function App() {
       setJobs((currentJobs) => currentJobs.filter((job) => job.id !== jobId))
     } catch (error: unknown) {
       if (error instanceof SessionExpiredError) {
-        resetSession(setSession, setRoute, setLoginError, error.message)
+        resetSession(setSession, setRouteHash, setLoginError, error.message)
         return
       }
 
@@ -77,7 +74,7 @@ function App() {
     }
   }
 
-  if (route === 'jobs' && session) {
+  if (showJobsView && session) {
     return (
       <main className="app-shell">
         <JobsView
@@ -85,6 +82,7 @@ function App() {
           jobs={jobs}
           jobsError={jobsError}
           onDeleteJob={handleDeleteJob}
+          selectedJobId={selectedJobId}
         />
       </main>
     )
@@ -98,48 +96,54 @@ function App() {
         loginError={loginError}
         onEmailChange={setEmail}
         onPasswordChange={setPassword}
+        password={password}
         onSubmit={(event) => {
           event.preventDefault()
           void handleSubmit()
         }}
-        password={password}
       />
     </main>
   )
 }
 
-function getInitialRoute(session: StoredSession | null): RouteName {
-  if (isJobsRoute() && session) {
-    return 'jobs'
+function getInitialRoute(session: StoredSession | null) {
+  const isKnownJobsRoute = isJobsRoute() || getJobIdFromRoute() !== undefined
+
+  if (isKnownJobsRoute && session) {
+    return window.location.hash
   }
 
-  return 'login'
+  return ''
 }
 
-function registerHashChangeHandler(setRoute: (route: RouteName) => void) {
-  const handleHashChange = () => setRoute(getInitialRoute(StoredSession.load()))
+function registerHashChangeHandler(setRouteHash: (routeHash: string) => void) {
+  const handleHashChange = () => setRouteHash(getInitialRoute(StoredSession.load()))
   window.addEventListener('hashchange', handleHashChange)
   return () => window.removeEventListener('hashchange', handleHashChange)
 }
 
 function syncRouteWithSession(
   session: StoredSession | null,
-  setRoute: (route: RouteName) => void,
+  setRouteHash: (routeHash: string) => void,
 ) {
-  if (!isJobsRoute() || session) {
+  const isKnownJobsRoute = isJobsRoute() || getJobIdFromRoute() !== undefined
+
+  if (!isKnownJobsRoute || session) {
     return
   }
 
   navigateTo('/', true)
-  setRoute('login')
+  setRouteHash('')
 }
 
 function loadJobsForRoute(
-  route: RouteName,
+  routeHash: string,
   session: StoredSession | null,
   actions: JobsLoaderActions,
 ) {
-  if (route !== 'jobs' || !session) {
+  const shouldLoadJobs = isJobsRoute(routeHash) || getJobIdFromRoute(routeHash) !== undefined
+
+  if (!shouldLoadJobs || !session) {
     return
   }
 
@@ -180,14 +184,14 @@ async function completeLogin(
   password: string,
   setSession: (session: StoredSession | null) => void,
   setPassword: (password: string) => void,
-  setRoute: (route: RouteName) => void,
+  setRouteHash: (routeHash: string) => void,
 ) {
   const nextSession = await login(email, password)
   nextSession.save()
   setSession(nextSession)
   setPassword('')
   navigateTo(JOBS_ROUTE)
-  setRoute('jobs')
+  setRouteHash(JOBS_ROUTE)
 }
 
 function handleJobsError(error: unknown, actions: JobsLoaderActions) {
@@ -201,14 +205,14 @@ function handleJobsError(error: unknown, actions: JobsLoaderActions) {
 
 function resetSession(
   setSession: (session: StoredSession | null) => void,
-  setRoute: (route: RouteName) => void,
+  setRouteHash: (routeHash: string) => void,
   setLoginError: (message: string | null) => void,
   message: string,
 ) {
   StoredSession.clear()
   setSession(null)
   navigateTo('/', true)
-  setRoute('login')
+  setRouteHash('')
   setLoginError(message)
 }
 
