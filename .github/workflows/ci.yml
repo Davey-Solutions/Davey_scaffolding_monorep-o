@@ -54,6 +54,7 @@ jobs:
         include:
           - suite: auth-service
             modules: services/auth-service
+            compose_services: auth-service postgres
             test_path: it-tests/auth-service/
             it_base_url: http://localhost:8082
             it_gateway_base_url: http://localhost:8082
@@ -61,6 +62,7 @@ jobs:
             it_job_service_base_url: http://localhost:18082
           - suite: job-service
             modules: services/job-service
+            compose_services: job-service postgres
             test_path: it-tests/job-service/
             it_base_url: http://localhost:18082
             it_gateway_base_url: http://localhost:18082
@@ -68,6 +70,7 @@ jobs:
             it_job_service_base_url: http://localhost:18082
           - suite: gateway
             modules: "services/auth-service services/job-service gateway"
+            compose_services: gateway auth-service job-service postgres
             test_path: it-tests/gateway/
             it_base_url: http://localhost:8080
             it_gateway_base_url: http://localhost:8080
@@ -112,7 +115,7 @@ jobs:
         run: docker pull postgres:16
 
       - name: Start stack
-        run: docker compose up -d --pull never --wait --timeout 120
+        run: docker compose up -d --pull never --wait --timeout 120 ${{ matrix.compose_services }}
 
       - name: Run per-service IT suite
         env:
