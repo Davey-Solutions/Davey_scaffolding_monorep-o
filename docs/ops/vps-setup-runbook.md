@@ -66,16 +66,16 @@ mkdir -p ~/app
 cd ~/app
 ```
 
-Copy the deployment artifact into `~/app` from your local checkout (the compose stack also needs files under `infra/`, not only `docker-compose.yml`). From your local machine at the repository root, run:
+Copy the required deployment files into `~/app` from your local checkout. From your local machine at the repository root, run:
 
 ```bash
-rsync -av --exclude '.git' --exclude '.env' ./ deploy@<your-vps-host>:~/app/
+rsync -av --relative docker-compose.yml .env.example infra/postgres/init.sh deploy@<your-vps-host>:~/app/
 ```
 
 Then on the VPS, create `.env`:
 
 ```bash
-cp .env.example .env
+if [ -f .env.example ]; then cp .env.example .env; else touch .env; fi
 chmod 600 .env
 ```
 
