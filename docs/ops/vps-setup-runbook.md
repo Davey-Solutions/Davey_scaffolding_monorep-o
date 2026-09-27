@@ -94,9 +94,9 @@ docker compose ps
 Health checks:
 
 ```bash
-curl -f http://localhost:8080/actuator/health
-curl -f http://localhost:8082/actuator/health
-curl -f http://localhost:18082/actuator/health
+curl -f http://localhost:8080/actuator/health   # gateway (ports: "8080:8080")
+curl -f http://localhost:8082/actuator/health   # auth-service (ports: "8082:8080")
+curl -f http://localhost:18082/actuator/health  # job-service (ports: "18082:8080")
 ```
 
 If any service is unhealthy, inspect logs:
