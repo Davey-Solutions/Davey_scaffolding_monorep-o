@@ -64,9 +64,10 @@ mkdir -p ~/app
 cd ~/app
 ```
 
-Copy deployment files (`docker-compose.yml` and `.env.example`) from this repository release/checkout into `~/app` (this repo uses `docker-compose.yml`), then create `.env`:
+Fetch the deployment files into `~/app` (this repo uses `docker-compose.yml`), then create `.env`:
 
 ```bash
+git clone https://github.com/Davey-Solutions/Davey_scaffolding_monorep-o.git .
 cp .env.example .env
 chmod 600 .env
 ```
