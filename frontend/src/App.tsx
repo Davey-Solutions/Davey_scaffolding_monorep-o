@@ -96,8 +96,12 @@ function App() {
     try {
       const createdJob = await createJob(request)
       setJobs((currentJobs) => {
-        if (currentJobs.some((job) => job.id === createdJob.id)) {
-          return currentJobs.map((job) => (job.id === createdJob.id ? createdJob : job))
+        const existingJobIndex = currentJobs.findIndex((job) => job.id === createdJob.id)
+
+        if (existingJobIndex >= 0) {
+          const nextJobs = [...currentJobs]
+          nextJobs[existingJobIndex] = createdJob
+          return nextJobs
         }
 
         return [...currentJobs, createdJob]
