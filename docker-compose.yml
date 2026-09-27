@@ -24,6 +24,8 @@ services:
       SPRING_PROFILES_ACTIVE: docker
       JWT_SECRET: ${JWT_SECRET}
       AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:-auth_pass}
+      AUTH_BOOTSTRAP_OWNER_EMAIL: ${AUTH_BOOTSTRAP_OWNER_EMAIL:-}
+      AUTH_BOOTSTRAP_OWNER_PASSWORD: ${AUTH_BOOTSTRAP_OWNER_PASSWORD:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -56,6 +58,7 @@ services:
       - "8080:8080"
     environment:
       JWT_SECRET: ${JWT_SECRET}
+      GATEWAY_RATE_LIMIT_BURST_CAPACITY: ${GATEWAY_RATE_LIMIT_BURST_CAPACITY:-1}
     depends_on:
       auth-service:
         condition: service_healthy

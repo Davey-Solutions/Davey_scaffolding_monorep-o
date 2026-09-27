@@ -109,7 +109,12 @@ jobs:
       - name: Create .env for docker compose
         run: |
           JWT_SECRET=$(openssl rand -hex 32)
-          echo "JWT_SECRET=${JWT_SECRET}" > .env
+          {
+            echo "JWT_SECRET=${JWT_SECRET}"
+            echo "AUTH_BOOTSTRAP_OWNER_EMAIL=owner@example.com"
+            echo "AUTH_BOOTSTRAP_OWNER_PASSWORD=owner-password"
+            echo "GATEWAY_RATE_LIMIT_BURST_CAPACITY=20"
+          } > .env
 
       - name: Pull postgres image
         run: docker pull postgres:16
@@ -180,7 +185,12 @@ jobs:
       - name: Create .env for docker compose
         run: |
           JWT_SECRET=$(openssl rand -hex 32)
-          echo "JWT_SECRET=${JWT_SECRET}" > .env
+          {
+            echo "JWT_SECRET=${JWT_SECRET}"
+            echo "AUTH_BOOTSTRAP_OWNER_EMAIL=owner@example.com"
+            echo "AUTH_BOOTSTRAP_OWNER_PASSWORD=owner-password"
+            echo "GATEWAY_RATE_LIMIT_BURST_CAPACITY=20"
+          } > .env
 
       - name: Pull postgres image
         run: docker pull postgres:16
