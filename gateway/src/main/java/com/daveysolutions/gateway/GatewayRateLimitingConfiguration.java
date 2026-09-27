@@ -2,6 +2,7 @@ package com.daveysolutions.gateway;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.cloud.gateway.filter.ratelimit.RateLimiter;
 import org.springframework.web.server.ServerWebExchange;
@@ -17,6 +18,14 @@ import java.time.Duration;
  */
 @Configuration
 class GatewayRateLimitingConfiguration {
+
+    private final int burstCapacity;
+
+    GatewayRateLimitingConfiguration(
+            @Value("${gateway.rate-limit.burst-capacity:1}") int burstCapacity
+    ) {
+        this.burstCapacity = burstCapacity;
+    }
 
     /**
      * Creates the key resolver used by Spring Cloud Gateway rate limiting.
@@ -35,7 +44,7 @@ class GatewayRateLimitingConfiguration {
      */
     @Bean
     RateLimiter<InMemoryRateLimiterConfig> inMemoryRateLimiter() {
-        return new InMemoryRateLimiter(Duration.ofMinutes(1), 1, Clock.systemUTC());
+        return new InMemoryRateLimiter(Duration.ofMinutes(1), burstCapacity, Clock.systemUTC());
     }
 
     private static String resolveClientAddress(ServerWebExchange exchange) {
