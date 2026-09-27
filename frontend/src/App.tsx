@@ -1,10 +1,26 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
-import { deleteJob, loadJobs, login, SessionExpiredError } from './api/apiClient'
+import {
+  createJob,
+  deleteJob,
+  loadJobs,
+  login,
+  SessionExpiredError,
+  updateJob,
+  type SaveJobRequest,
+} from './api/apiClient'
 import { StoredSession } from './auth/StoredSession'
 import { JobsView } from './components/JobsView'
 import { LoginView } from './components/LoginView'
-import { getJobIdFromRoute, JOBS_ROUTE, isJobsRoute, navigateTo } from './routes'
+import {
+  buildJobDetailRoute,
+  getJobIdFromEditRoute,
+  getJobIdFromRoute,
+  isCreateJobRoute,
+  JOBS_ROUTE,
+  isJobsRoute,
+  navigateTo,
+} from './routes'
 import type { Job } from './types/Job'
 
 /**
@@ -33,8 +49,10 @@ function App() {
   const [loginError, setLoginError] = useState<string | null>(null)
   const [isLoadingJobs, setIsLoadingJobs] = useState(false)
   const [routeHash, setRouteHash] = useState(() => getInitialRoute(initialSession))
-  const selectedJobId = getJobIdFromRoute(routeHash)
-  const showJobsView = isJobsRoute(routeHash) || selectedJobId !== undefined
+  const isCreateRoute = isCreateJobRoute(routeHash)
+  const editingJobId = getJobIdFromEditRoute(routeHash)
+  const selectedJobId = isCreateRoute || editingJobId ? undefined : getJobIdFromRoute(routeHash)
+  const showJobsView = isKnownJobsRoute(routeHash)
 
   useEffect(() => registerHashChangeHandler(setRouteHash), [])
   useEffect(() => syncRouteWithSession(session, setRouteHash), [session])
@@ -74,14 +92,52 @@ function App() {
     }
   }
 
+  async function handleCreateJob(request: SaveJobRequest) {
+    try {
+      const createdJob = await createJob(request)
+      setJobs((currentJobs) => [...currentJobs, createdJob])
+      navigateTo(buildJobDetailRoute(createdJob.id))
+      setRouteHash(buildJobDetailRoute(createdJob.id))
+    } catch (error: unknown) {
+      if (error instanceof SessionExpiredError) {
+        resetSession(setSession, setRouteHash, setLoginError, error.message)
+        return
+      }
+
+      throw error
+    }
+  }
+
+  async function handleUpdateJob(jobId: string, request: SaveJobRequest) {
+    try {
+      const updatedJob = await updateJob(jobId, request)
+      setJobs((currentJobs) =>
+        currentJobs.map((job) => (job.id === updatedJob.id ? updatedJob : job)),
+      )
+      navigateTo(buildJobDetailRoute(updatedJob.id))
+      setRouteHash(buildJobDetailRoute(updatedJob.id))
+    } catch (error: unknown) {
+      if (error instanceof SessionExpiredError) {
+        resetSession(setSession, setRouteHash, setLoginError, error.message)
+        return
+      }
+
+      throw error
+    }
+  }
+
   if (showJobsView && session) {
     return (
       <main className="app-shell">
         <JobsView
+          editingJobId={editingJobId}
           isLoadingJobs={isLoadingJobs}
+          isCreatingJob={isCreateRoute}
           jobs={jobs}
           jobsError={jobsError}
+          onCreateJob={handleCreateJob}
           onDeleteJob={handleDeleteJob}
+          onUpdateJob={handleUpdateJob}
           selectedJobId={selectedJobId}
         />
       </main>
@@ -107,9 +163,7 @@ function App() {
 }
 
 function getInitialRoute(session: StoredSession | null) {
-  const isKnownJobsRoute = isJobsRoute() || getJobIdFromRoute() !== undefined
-
-  if (isKnownJobsRoute && session) {
+  if (isKnownJobsRoute() && session) {
     return window.location.hash
   }
 
@@ -126,9 +180,7 @@ function syncRouteWithSession(
   session: StoredSession | null,
   setRouteHash: (routeHash: string) => void,
 ) {
-  const isKnownJobsRoute = isJobsRoute() || getJobIdFromRoute() !== undefined
-
-  if (!isKnownJobsRoute || session) {
+  if (!isKnownJobsRoute() || session) {
     return
   }
 
@@ -141,10 +193,22 @@ function loadJobsForRoute(
   session: StoredSession | null,
   actions: JobsLoaderActions,
 ) {
-  const shouldLoadJobs = isJobsRoute(routeHash) || getJobIdFromRoute(routeHash) !== undefined
+  const shouldLoadJobs =
+    isJobsRoute(routeHash) ||
+    getJobIdFromRoute(routeHash) !== undefined ||
+    getJobIdFromEditRoute(routeHash) !== undefined
 
   if (!shouldLoadJobs || !session) {
     return
+  }
+
+  function isKnownJobsRoute(hash: string = window.location.hash) {
+    return (
+      isJobsRoute(hash) ||
+      isCreateJobRoute(hash) ||
+      getJobIdFromRoute(hash) !== undefined ||
+      getJobIdFromEditRoute(hash) !== undefined
+    )
   }
 
   let isActive = true

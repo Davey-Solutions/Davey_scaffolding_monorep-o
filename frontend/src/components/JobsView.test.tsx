@@ -3,12 +3,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { JobsView } from './JobsView'
 
 describe('JobsView', () => {
+  const onCreateJob = vi.fn(async () => {})
   const onDeleteJob = vi.fn(async () => {})
+  const onUpdateJob = vi.fn(async () => {})
 
   afterEach(() => {
     cleanup()
     vi.restoreAllMocks()
+    onCreateJob.mockClear()
     onDeleteJob.mockClear()
+    onUpdateJob.mockClear()
   })
 
   it('shows completed and paid badges', () => {
@@ -25,13 +29,16 @@ describe('JobsView', () => {
           },
         ]}
         jobsError={null}
+        onCreateJob={onCreateJob}
         onDeleteJob={onDeleteJob}
+        onUpdateJob={onUpdateJob}
       />,
     )
 
     expect(screen.getByText('Completed')).toBeInTheDocument()
     expect(screen.getByText('Paid', { selector: '.job-badge-paid' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Alice' })).toHaveAttribute('href', '#/jobs/job-1')
+    expect(screen.getByRole('link', { name: 'Create job' })).toHaveAttribute('href', '#/jobs/new')
   })
 
   it('filters jobs by status and paid values', () => {
@@ -62,7 +69,9 @@ describe('JobsView', () => {
           },
         ]}
         jobsError={null}
+        onCreateJob={onCreateJob}
         onDeleteJob={onDeleteJob}
+        onUpdateJob={onUpdateJob}
       />,
     )
 
@@ -87,14 +96,32 @@ describe('JobsView', () => {
   })
 
   it('shows base empty state when no jobs are loaded', () => {
-    render(<JobsView isLoadingJobs={false} jobs={[]} jobsError={null} onDeleteJob={onDeleteJob} />)
+    render(
+      <JobsView
+        isLoadingJobs={false}
+        jobs={[]}
+        jobsError={null}
+        onCreateJob={onCreateJob}
+        onDeleteJob={onDeleteJob}
+        onUpdateJob={onUpdateJob}
+      />,
+    )
 
     expect(screen.getByText('No jobs yet.')).toBeInTheDocument()
     expect(screen.queryByText('No jobs match the selected filters.')).not.toBeInTheDocument()
   })
 
   it('shows a loading state while jobs are being fetched', () => {
-    render(<JobsView isLoadingJobs={true} jobs={[]} jobsError={null} onDeleteJob={onDeleteJob} />)
+    render(
+      <JobsView
+        isLoadingJobs={true}
+        jobs={[]}
+        jobsError={null}
+        onCreateJob={onCreateJob}
+        onDeleteJob={onDeleteJob}
+        onUpdateJob={onUpdateJob}
+      />,
+    )
 
     expect(screen.getByText('Loading jobs…')).toBeInTheDocument()
   })
@@ -113,7 +140,9 @@ describe('JobsView', () => {
           },
         ]}
         jobsError={null}
+        onCreateJob={onCreateJob}
         onDeleteJob={onDeleteJob}
+        onUpdateJob={onUpdateJob}
         selectedJobId="job-1"
       />,
     )
@@ -123,6 +152,7 @@ describe('JobsView', () => {
     expect(screen.getByText('job-1')).toBeInTheDocument()
     expect(screen.queryByRole('combobox', { name: 'Status' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Back to jobs' })).toHaveAttribute('href', '#/jobs')
+    expect(screen.getByRole('link', { name: 'Edit job' })).toHaveAttribute('href', '#/jobs/job-1/edit')
   })
 
   it('renders not found state for an unknown selected job', () => {
@@ -131,13 +161,76 @@ describe('JobsView', () => {
         isLoadingJobs={false}
         jobs={[]}
         jobsError={null}
+        onCreateJob={onCreateJob}
         onDeleteJob={onDeleteJob}
+        onUpdateJob={onUpdateJob}
         selectedJobId="missing-job"
       />,
     )
 
     expect(screen.getByText('Job not found.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Back to jobs' })).toHaveAttribute('href', '#/jobs')
+  })
+
+  it('validates the create form before submitting', () => {
+    render(
+      <JobsView
+        isCreatingJob={true}
+        isLoadingJobs={false}
+        jobs={[]}
+        jobsError={null}
+        onCreateJob={onCreateJob}
+        onDeleteJob={onDeleteJob}
+        onUpdateJob={onUpdateJob}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('Customer name'), { target: { value: '   ' } })
+    fireEvent.change(screen.getByLabelText('Site address'), { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Create job' }))
+
+    expect(screen.getByText('Customer name is required.')).toBeInTheDocument()
+    expect(screen.getByText('Site address is required.')).toBeInTheDocument()
+    expect(onCreateJob).not.toHaveBeenCalled()
+  })
+
+  it('submits edited job values including status and paid state', async () => {
+    render(
+      <JobsView
+        editingJobId="job-1"
+        isLoadingJobs={false}
+        jobs={[
+          {
+            id: 'job-1',
+            customerName: 'Alice',
+            siteAddress: '1 Scaffold Street',
+            status: 'IN_PROGRESS',
+            paid: false,
+          },
+        ]}
+        jobsError={null}
+        onCreateJob={onCreateJob}
+        onDeleteJob={onDeleteJob}
+        onUpdateJob={onUpdateJob}
+      />,
+    )
+
+    fireEvent.change(screen.getByLabelText('Customer name'), { target: { value: '  Alice Smith  ' } })
+    fireEvent.change(screen.getByLabelText('Site address'), { target: { value: '  2 Scaffold Street  ' } })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Status' }), {
+      target: { value: 'COMPLETED' },
+    })
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Paid' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    await waitFor(() =>
+      expect(onUpdateJob).toHaveBeenCalledWith('job-1', {
+        customerName: 'Alice Smith',
+        siteAddress: '2 Scaffold Street',
+        status: 'COMPLETED',
+        paid: true,
+      }),
+    )
   })
 
   it('deletes a job only after confirmation', () => {
@@ -156,7 +249,9 @@ describe('JobsView', () => {
           },
         ]}
         jobsError={null}
+        onCreateJob={onCreateJob}
         onDeleteJob={onDeleteJob}
+        onUpdateJob={onUpdateJob}
       />,
     )
 
@@ -195,7 +290,9 @@ describe('JobsView', () => {
           },
         ]}
         jobsError={null}
+        onCreateJob={onCreateJob}
         onDeleteJob={onDeleteJob}
+        onUpdateJob={onUpdateJob}
       />,
     )
 
@@ -223,7 +320,9 @@ describe('JobsView', () => {
           },
         ]}
         jobsError={null}
+        onCreateJob={onCreateJob}
         onDeleteJob={onDeleteJob}
+        onUpdateJob={onUpdateJob}
       />,
     )
 

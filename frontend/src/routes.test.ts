@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { buildJobDetailRoute, getJobIdFromRoute } from './routes'
+import {
+  buildCreateJobRoute,
+  buildEditJobRoute,
+  buildJobDetailRoute,
+  getJobIdFromEditRoute,
+  getJobIdFromRoute,
+  isCreateJobRoute,
+} from './routes'
 
 describe('routes', () => {
   it('builds and parses a job detail route', () => {
@@ -15,6 +22,19 @@ describe('routes', () => {
   it('supports ids containing slashes', () => {
     const route = buildJobDetailRoute('group/job-1')
     expect(getJobIdFromRoute(route)).toBe('group/job-1')
+  })
+
+  it('builds and parses edit routes', () => {
+    const route = buildEditJobRoute('job-1')
+    expect(route).toBe('#/jobs/job-1/edit')
+    expect(getJobIdFromEditRoute(route)).toBe('job-1')
+  })
+
+  it('builds and identifies the create route', () => {
+    const route = buildCreateJobRoute()
+    expect(route).toBe('#/jobs/new')
+    expect(isCreateJobRoute(route)).toBe(true)
+    expect(getJobIdFromRoute(route)).toBeUndefined()
   })
 
   it('rejects routes with additional path segments', () => {

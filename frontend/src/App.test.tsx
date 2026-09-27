@@ -133,6 +133,140 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: 'Back to jobs' })).toHaveAttribute('href', '#/jobs')
   })
 
+  it('creates a job end-to-end from the jobs list', async () => {
+    let createdJobExists = false
+    let createdJobRequestBody: string | null = null
+    const createdJob = {
+      id: 'job-2',
+      customerName: 'Alice',
+      siteAddress: '1 Scaffold Street',
+      status: 'PENDING',
+      paid: false,
+    }
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
+      const url = String(input)
+
+      if (url.endsWith('/auth/login')) {
+        return createJsonResponse({
+          accessToken: 'access-token',
+          refreshToken: 'refresh-token',
+        })
+      }
+
+      if (url.endsWith('/jobs') && init?.method === 'POST') {
+        createdJobRequestBody = String(init.body)
+        createdJobExists = true
+        return createJsonResponse(createdJob, 201)
+      }
+
+      return createJsonResponse(createdJobExists ? [createdJob] : [])
+    })
+
+    global.fetch = fetchMock
+
+    render(<App />)
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'owner@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password-123' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
+
+    await screen.findByRole('heading', { name: 'Jobs' })
+    fireEvent.click(screen.getByRole('link', { name: 'Create job' }))
+    await screen.findByRole('heading', { name: 'Create job' })
+    fireEvent.change(screen.getByLabelText('Customer name'), { target: { value: ' Alice ' } })
+    fireEvent.change(screen.getByLabelText('Site address'), {
+      target: { value: ' 1 Scaffold Street ' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Create job' }))
+
+    await screen.findByRole('heading', { name: 'Job details' })
+    await waitFor(() => expect(window.location.hash).toBe('#/jobs/job-2'))
+    expect(createdJobRequestBody).toBe(
+      JSON.stringify({
+        customerName: 'Alice',
+        siteAddress: '1 Scaffold Street',
+      }),
+    )
+    expect(screen.getByText('Alice')).toBeInTheDocument()
+    expect(screen.getByText('1 Scaffold Street')).toBeInTheDocument()
+  })
+
+  it('edits a job end-to-end from the detail view', async () => {
+    let currentJobs = [
+      {
+        id: 'job-1',
+        customerName: 'Alice',
+        siteAddress: '1 Scaffold Street',
+        status: 'PENDING',
+        paid: false,
+      },
+    ]
+    let updateJobRequestBody: string | null = null
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
+      const url = String(input)
+
+      if (url.endsWith('/auth/login')) {
+        return createJsonResponse({
+          accessToken: 'access-token',
+          refreshToken: 'refresh-token',
+        })
+      }
+
+      if (url.endsWith('/jobs/job-1') && init?.method === 'PUT') {
+        updateJobRequestBody = String(init.body)
+        currentJobs = [
+          {
+            id: 'job-1',
+            customerName: 'Alice Smith',
+            siteAddress: '2 Scaffold Street',
+            status: 'COMPLETED',
+            paid: true,
+          },
+        ]
+
+        return createJsonResponse(currentJobs[0])
+      }
+
+      return createJsonResponse(currentJobs)
+    })
+
+    global.fetch = fetchMock
+
+    render(<App />)
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'owner@example.com' } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password-123' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
+
+    const detailsLink = await screen.findByRole('link', { name: 'Alice' })
+    fireEvent.click(detailsLink)
+    await screen.findByRole('heading', { name: 'Job details' })
+
+    fireEvent.click(screen.getByRole('link', { name: 'Edit job' }))
+    await screen.findByRole('heading', { name: 'Edit job' })
+    fireEvent.change(screen.getByLabelText('Customer name'), { target: { value: ' Alice Smith ' } })
+    fireEvent.change(screen.getByLabelText('Site address'), {
+      target: { value: ' 2 Scaffold Street ' },
+    })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Status' }), {
+      target: { value: 'COMPLETED' },
+    })
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Paid' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+
+    await screen.findByRole('heading', { name: 'Job details' })
+    await waitFor(() => expect(window.location.hash).toBe('#/jobs/job-1'))
+    expect(updateJobRequestBody).toBe(
+      JSON.stringify({
+        customerName: 'Alice Smith',
+        siteAddress: '2 Scaffold Street',
+        status: 'COMPLETED',
+        paid: true,
+      }),
+    )
+    expect(screen.getByText('Alice Smith')).toBeInTheDocument()
+    expect(screen.getByText('2 Scaffold Street')).toBeInTheDocument()
+    expect(screen.getByText('Yes')).toBeInTheDocument()
+  })
+
   it('deletes a job after confirmation', async () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
     const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
@@ -259,9 +393,9 @@ describe('App', () => {
   })
 })
 
-function createJsonResponse(payload: unknown) {
+function createJsonResponse(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
-    status: 200,
+    status,
     headers: { 'Content-Type': 'application/json' },
   })
 }
