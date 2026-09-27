@@ -94,12 +94,10 @@ docker compose ps
 Health checks (run these on the VPS shell where Docker Compose is running):
 
 ```bash
-docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$(docker compose ps -q gateway)"
-docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$(docker compose ps -q auth-service)"
-docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$(docker compose ps -q job-service)"
+docker compose ps gateway auth-service job-service
 ```
 
-Each command returns either `healthy` (health check configured and passing) or `no-healthcheck` (container has no health check configured). If you see anything else, or a service is restarting, use `docker compose ps` and `docker compose logs --tail=200` for verification.
+In the `STATUS` column, each service should be `Up` and, where health checks are configured, include `(healthy)`. If a service is missing, restarting, exited, or unhealthy, inspect logs:
 
 If any service is unhealthy, inspect logs:
 
