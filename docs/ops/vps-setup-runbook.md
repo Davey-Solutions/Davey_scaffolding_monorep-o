@@ -112,7 +112,7 @@ Before continuing, confirm required keys are present and non-empty in `.env`.
 
 ```bash
 for key in JWT_SECRET POSTGRES_PASSWORD AUTH_DB_PASSWORD JOBS_DB_PASSWORD; do
-  grep -Eq "^${key}=.+$" .env
+  grep -Eq "^${key}=.+$" .env || { echo "Missing required key: ${key}"; exit 1; }
 done
 ```
 
