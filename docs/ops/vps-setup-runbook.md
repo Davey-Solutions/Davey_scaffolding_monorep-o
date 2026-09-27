@@ -108,7 +108,7 @@ docker compose ps gateway auth-service job-service
 In the `STATUS` column, each service should be `Up` and, where health checks are configured, include `(healthy)`. If a service is missing, restarting, exited, or unhealthy, inspect logs:
 
 ```bash
-docker compose logs --tail=200
+docker compose logs --tail=200 gateway auth-service job-service
 ```
 
 ## 7) Repeatable update command
