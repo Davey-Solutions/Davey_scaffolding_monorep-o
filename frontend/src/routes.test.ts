@@ -30,6 +30,10 @@ describe('routes', () => {
     expect(getJobIdFromEditRoute(route)).toBe('job-1')
   })
 
+  it('rejects malformed edit routes with trailing path separators', () => {
+    expect(getJobIdFromEditRoute('#/jobs/job-1/edit/')).toBeUndefined()
+  })
+
   it('builds and identifies the create route', () => {
     const route = buildCreateJobRoute()
     expect(route).toBe('#/jobs/new')

@@ -90,15 +90,15 @@ export function getJobIdFromEditRoute(hash: string = window.location.hash) {
     return undefined
   }
 
-  const pathTail = getRoutePath(routeTail)
+  const routeSegments = getRoutePath(routeTail).split('/')
 
-  if (!pathTail.endsWith(EDIT_JOB_ROUTE_SUFFIX)) {
+  if (routeSegments.length !== 2) {
     return undefined
   }
 
-  const encodedId = pathTail.slice(0, -EDIT_JOB_ROUTE_SUFFIX.length)
+  const [encodedId = '', action = ''] = routeSegments
 
-  if (!isSinglePathSegment(encodedId) || encodedId === 'new') {
+  if (action !== 'edit' || !isSinglePathSegment(encodedId) || encodedId === 'new') {
     return undefined
   }
 
