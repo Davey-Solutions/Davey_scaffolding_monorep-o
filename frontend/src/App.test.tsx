@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { HttpStatus } from './api/httpStatus'
 import App from './App'
 
 describe('App', () => {
@@ -59,7 +60,9 @@ describe('App', () => {
   })
 
   it('shows an invalid credentials error', async () => {
-    global.fetch = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 401 }))
+    global.fetch = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(null, { status: HttpStatus.UNAUTHORIZED }))
 
     render(<App />)
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'owner@example.com' } })
@@ -156,7 +159,7 @@ describe('App', () => {
       if (url.endsWith('/jobs') && init?.method === 'POST') {
         createdJobRequestBody = String(init.body)
         createdJobExists = true
-        return createJsonResponse(createdJob, 201)
+        return createJsonResponse(createdJob, HttpStatus.CREATED)
       }
 
       return createJsonResponse(createdJobExists ? [createdJob] : [])
@@ -280,7 +283,7 @@ describe('App', () => {
       }
 
       if (url.endsWith('/jobs/job-1') && init?.method === 'DELETE') {
-        return new Response(null, { status: 204 })
+        return new Response(null, { status: HttpStatus.NO_CONTENT })
       }
 
       return createJsonResponse([
@@ -322,7 +325,7 @@ describe('App', () => {
       }
 
       if (url.endsWith('/jobs/job-1') && init?.method === 'DELETE') {
-        return new Response(null, { status: 500 })
+        return new Response(null, { status: HttpStatus.INTERNAL_SERVER_ERROR })
       }
 
       return createJsonResponse([
@@ -363,7 +366,7 @@ describe('App', () => {
       }
 
       if (url.endsWith('/jobs/job-1') && init?.method === 'DELETE') {
-        return new Response(null, { status: 401 })
+        return new Response(null, { status: HttpStatus.UNAUTHORIZED })
       }
 
       return createJsonResponse([
@@ -393,7 +396,7 @@ describe('App', () => {
   })
 })
 
-function createJsonResponse(payload: unknown, status = 200) {
+function createJsonResponse(payload: unknown, status = HttpStatus.OK) {
   return new Response(JSON.stringify(payload), {
     status,
     headers: { 'Content-Type': 'application/json' },

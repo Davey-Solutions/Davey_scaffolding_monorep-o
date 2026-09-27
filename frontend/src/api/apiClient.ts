@@ -1,35 +1,11 @@
 import { StoredSession } from '../auth/StoredSession'
-import type { Job } from '../types/Job'
-import type { JobStatus } from '../types/Job'
+import { Job } from '../types/Job'
 import type { LoginResponse } from '../types/LoginResponse'
+import { SessionExpiredError } from './SessionExpiredError'
+import { HttpStatus } from './httpStatus'
+import type { SaveJobRequest } from './SaveJobRequest'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
-
-/**
- * Error raised when the stored access token is rejected.
- */
-export class SessionExpiredError extends Error {
-  /**
-   * Creates the session-expired error.
-   */
-  public constructor() {
-    super('Your session has expired. Please log in again.')
-  }
-}
-
-/**
- * Payload accepted by the create and update job endpoints.
- */
-export interface SaveJobRequest {
-  /** Customer name required by the API. */
-  customerName: string
-  /** Site address required by the API. */
-  siteAddress: string
-  /** Optional lifecycle status update. */
-  status?: JobStatus
-  /** Optional payment-state update. */
-  paid?: boolean
-}
 
 /**
  * Logs a user in through the gateway auth endpoint.
@@ -149,7 +125,7 @@ async function parseLoginResponse(response: Response) {
 }
 
 function createLoginError(status: number) {
-  if (status === 401) {
+  if (status === HttpStatus.UNAUTHORIZED) {
     return new Error('Invalid email or password.')
   }
 
@@ -161,7 +137,8 @@ async function parseJobsResponse(response: Response) {
     throw createJobsError(response.status)
   }
 
-  return (await response.json()) as Job[]
+  const payload = (await response.json()) as Job[]
+  return payload.map((job) => new Job(job))
 }
 
 async function parseJobResponse(
@@ -172,11 +149,12 @@ async function parseJobResponse(
     throw createError(response.status)
   }
 
-  return (await response.json()) as Job
+  const payload = (await response.json()) as Job
+  return new Job(payload)
 }
 
 function createJobsError(status: number) {
-  if (status === 401) {
+  if (status === HttpStatus.UNAUTHORIZED) {
     return new SessionExpiredError()
   }
 
@@ -184,11 +162,11 @@ function createJobsError(status: number) {
 }
 
 function createDeleteJobError(status: number) {
-  if (status === 401) {
+  if (status === HttpStatus.UNAUTHORIZED) {
     return new SessionExpiredError()
   }
 
-  if (status === 404) {
+  if (status === HttpStatus.NOT_FOUND) {
     return new Error('Job no longer exists.')
   }
 
@@ -196,7 +174,7 @@ function createDeleteJobError(status: number) {
 }
 
 function createSaveJobError(status: number) {
-  if (status === 401) {
+  if (status === HttpStatus.UNAUTHORIZED) {
     return new SessionExpiredError()
   }
 
@@ -204,11 +182,11 @@ function createSaveJobError(status: number) {
 }
 
 function createUpdateJobError(status: number) {
-  if (status === 401) {
+  if (status === HttpStatus.UNAUTHORIZED) {
     return new SessionExpiredError()
   }
 
-  if (status === 404) {
+  if (status === HttpStatus.NOT_FOUND) {
     return new Error('Job no longer exists.')
   }
 

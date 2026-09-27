@@ -1,24 +1,4 @@
-import type { FormEventHandler } from 'react'
-
-/**
- * Props required to render the login form.
- */
-export interface LoginViewProps {
-  /** Current email field value. */
-  email: string
-  /** Current password field value. */
-  password: string
-  /** Whether the form submit is in progress. */
-  isSubmitting: boolean
-  /** Optional error shown above the submit button. */
-  loginError: string | null
-  /** Called when the email input changes. */
-  onEmailChange: (value: string) => void
-  /** Called when the password input changes. */
-  onPasswordChange: (value: string) => void
-  /** Called when the form is submitted. */
-  onSubmit: FormEventHandler<HTMLFormElement>
-}
+import type { LoginViewProps } from './LoginViewProps'
 
 /**
  * Login screen displayed before a session is available.
@@ -27,7 +7,7 @@ export interface LoginViewProps {
  * @returns the login view markup
  */
 export function LoginView(props: LoginViewProps) {
-  const buttonLabel = props.isSubmitting ? 'Logging in…' : 'Log in'
+  const buttonLabel = getButtonLabel(props.isSubmitting)
 
   return (
     <section className="login-card">
@@ -59,11 +39,27 @@ export function LoginView(props: LoginViewProps) {
             value={props.password}
           />
         </label>
-        {props.loginError ? <p className="panel panel-error">{props.loginError}</p> : null}
+        {renderLoginError(props.loginError)}
         <button disabled={props.isSubmitting} type="submit">
           {buttonLabel}
         </button>
       </form>
     </section>
   )
+}
+
+function getButtonLabel(isSubmitting: boolean) {
+  if (isSubmitting) {
+    return 'Logging in…'
+  }
+
+  return 'Log in'
+}
+
+function renderLoginError(loginError: string | null) {
+  if (!loginError) {
+    return null
+  }
+
+  return <p className="panel panel-error">{loginError}</p>
 }

@@ -5,6 +5,7 @@ export const JOBS_ROUTE = '#/jobs'
 const CREATE_JOB_ROUTE = `${JOBS_ROUTE}/new`
 const JOB_DETAIL_ROUTE_PREFIX = `${JOBS_ROUTE}/`
 const EDIT_JOB_ROUTE_SUFFIX = '/edit'
+const EDIT_ROUTE_SEGMENT_COUNT = 2
 
 /**
  * Returns whether the current hash targets the jobs screen.
@@ -92,7 +93,7 @@ export function getJobIdFromEditRoute(hash: string = window.location.hash) {
 
   const routeSegments = getRoutePath(routeTail).split('/')
 
-  if (routeSegments.length !== 2) {
+  if (routeSegments.length !== EDIT_ROUTE_SEGMENT_COUNT) {
     return undefined
   }
 
@@ -157,5 +158,9 @@ function replaceLocation(path: string) {
 }
 
 function normalizePath(path: string) {
-  return path === '/' ? '' : path
+  if (path === '/') {
+    return ''
+  }
+
+  return path
 }
