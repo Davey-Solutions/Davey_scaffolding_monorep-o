@@ -71,8 +71,8 @@ Copy the required deployment files into `~/app` from your local checkout. From y
 - The compose stack uses prebuilt images (`ghcr.io/...`) and bind-mounts a script from `infra/postgres/`, so copy the compose file, optional `.env.example`, and the `infra/postgres/` directory to preserve expected paths.
 
 ```bash
-COMPOSE_FILE="$(ls -1 compose.yaml compose.yml docker-compose.yaml docker-compose.yml 2>/dev/null | head -n1)"
-test -n "$COMPOSE_FILE"
+COMPOSE_FILE="docker-compose.yml"
+test -f "$COMPOSE_FILE"
 if [ -f .env.example ]; then
   rsync -av "$COMPOSE_FILE" .env.example deploy@<your-vps-host>:~/app/
 else
