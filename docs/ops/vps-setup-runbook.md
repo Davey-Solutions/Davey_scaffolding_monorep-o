@@ -47,6 +47,8 @@ usermod -aG docker deploy
 Run as `root`:
 
 ```bash
+apt-get update
+apt-get install -y ufw
 ufw allow OpenSSH
 ufw allow 80/tcp
 ufw allow 443/tcp
@@ -64,10 +66,10 @@ mkdir -p ~/app
 cd ~/app
 ```
 
-Copy the deployment files into `~/app` (this repo uses `docker-compose.yml`). From your local machine, run:
+Copy the deployment artifact into `~/app` from your local checkout (the compose stack also needs files under `infra/`, not only `docker-compose.yml`). From your local machine at the repository root, run:
 
 ```bash
-scp docker-compose.yml .env.example deploy@<your-vps-host>:~/app/
+rsync -av --exclude '.git' ./ deploy@<your-vps-host>:~/app/
 ```
 
 Then on the VPS, create `.env`:
