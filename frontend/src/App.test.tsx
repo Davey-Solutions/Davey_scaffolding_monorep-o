@@ -169,7 +169,7 @@ describe('App', () => {
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password-123' } })
     fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
 
-    await screen.findByRole('heading', { name: 'Jobs' })
+    await screen.findByRole('link', { name: 'Create job' })
     fireEvent.click(screen.getByRole('link', { name: 'Create job' }))
     await screen.findByRole('heading', { name: 'Create job' })
     fireEvent.change(screen.getByLabelText('Customer name'), { target: { value: ' Alice ' } })

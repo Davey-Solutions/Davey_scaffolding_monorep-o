@@ -1,4 +1,4 @@
-import { type FormEvent, useMemo, useState } from 'react'
+import { type FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import type { SaveJobRequest } from '../api/apiClient'
 import {
   buildCreateJobRoute,
@@ -225,6 +225,29 @@ function JobFormView(props: {
   const heading = props.mode === 'create' ? 'Create job' : 'Edit job'
   const submitLabel = props.mode === 'create' ? 'Create job' : 'Save changes'
   const pendingLabel = props.mode === 'create' ? 'Creating…' : 'Saving…'
+  const customerNameErrorId = 'job-form-customer-name-error'
+  const siteAddressErrorId = 'job-form-site-address-error'
+  const resetKeyRef = useRef<string | null>(null)
+  const formResetKey = JSON.stringify({
+    mode: props.mode,
+    id: props.job?.id ?? null,
+    customerName: props.job?.customerName ?? null,
+    siteAddress: props.job?.siteAddress ?? null,
+    status: props.job?.status ?? null,
+    paid: props.job?.paid ?? null,
+  })
+
+  useEffect(() => {
+    if (resetKeyRef.current === formResetKey) {
+      return
+    }
+
+    resetKeyRef.current = formResetKey
+    setValues(getInitialJobFormValues(props.job))
+    setFieldErrors({})
+    setFormError(null)
+    setIsSubmitting(false)
+  }, [formResetKey, props.job])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -267,6 +290,7 @@ function JobFormView(props: {
         <label>
           <span>Customer name</span>
           <input
+            aria-describedby={fieldErrors.customerName ? customerNameErrorId : undefined}
             aria-invalid={Boolean(fieldErrors.customerName)}
             name="customerName"
             onChange={(event) => {
@@ -278,10 +302,15 @@ function JobFormView(props: {
             value={values.customerName}
           />
         </label>
-        {fieldErrors.customerName ? <p className="field-error">{fieldErrors.customerName}</p> : null}
+        {fieldErrors.customerName ? (
+          <p className="field-error" id={customerNameErrorId}>
+            {fieldErrors.customerName}
+          </p>
+        ) : null}
         <label>
           <span>Site address</span>
           <input
+            aria-describedby={fieldErrors.siteAddress ? siteAddressErrorId : undefined}
             aria-invalid={Boolean(fieldErrors.siteAddress)}
             name="siteAddress"
             onChange={(event) => {
@@ -293,7 +322,11 @@ function JobFormView(props: {
             value={values.siteAddress}
           />
         </label>
-        {fieldErrors.siteAddress ? <p className="field-error">{fieldErrors.siteAddress}</p> : null}
+        {fieldErrors.siteAddress ? (
+          <p className="field-error" id={siteAddressErrorId}>
+            {fieldErrors.siteAddress}
+          </p>
+        ) : null}
         {props.mode === 'edit' ? (
           <>
             <label>
