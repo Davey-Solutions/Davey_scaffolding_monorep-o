@@ -69,7 +69,8 @@ cd ~/app
 Copy the required deployment files into `~/app` from your local checkout. From your local machine at the repository root, run:
 
 ```bash
-rsync -av --relative docker-compose.yml .env.example infra/postgres/init.sh deploy@<your-vps-host>:~/app/
+rsync -av docker-compose.yml .env.example deploy@<your-vps-host>:~/app/
+rsync -av infra/postgres/ deploy@<your-vps-host>:~/app/infra/postgres/
 ```
 
 Then on the VPS, create `.env`:
