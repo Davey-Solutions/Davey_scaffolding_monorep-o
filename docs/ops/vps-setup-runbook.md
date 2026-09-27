@@ -108,7 +108,7 @@ Health checks (run these on the VPS shell where Docker Compose is running):
 docker compose ps gateway auth-service job-service
 ```
 
-In the `STATUS` column, each service should be `Up` and, where health checks are configured, include `(healthy)`. If a service is missing, restarting, exited, or unhealthy, inspect logs:
+In the `STATE` output for each service, it should be `running` and, where health checks are configured, include `healthy`. If a service is missing, restarting, exited, or unhealthy, inspect logs:
 
 ```bash
 docker compose logs --tail=200 gateway auth-service job-service
