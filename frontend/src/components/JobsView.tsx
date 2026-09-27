@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { type FormEvent, useMemo, useState } from 'react'
 import type { SaveJobRequest } from '../api/apiClient'
 import {
   buildCreateJobRoute,
@@ -226,7 +226,7 @@ function JobFormView(props: {
   const submitLabel = props.mode === 'create' ? 'Create job' : 'Save changes'
   const pendingLabel = props.mode === 'create' ? 'Creating…' : 'Saving…'
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setFormError(null)
 

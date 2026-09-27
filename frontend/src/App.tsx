@@ -202,15 +202,6 @@ function loadJobsForRoute(
     return
   }
 
-  function isKnownJobsRoute(hash: string = window.location.hash) {
-    return (
-      isJobsRoute(hash) ||
-      isCreateJobRoute(hash) ||
-      getJobIdFromRoute(hash) !== undefined ||
-      getJobIdFromEditRoute(hash) !== undefined
-    )
-  }
-
   let isActive = true
   actions.setIsLoadingJobs(true)
   actions.setJobsError(null)
@@ -241,6 +232,15 @@ function loadJobsForRoute(
     isActive = false
     actions.setIsLoadingJobs(false)
   }
+}
+
+function isKnownJobsRoute(hash: string = window.location.hash) {
+  return (
+    isJobsRoute(hash) ||
+    isCreateJobRoute(hash) ||
+    getJobIdFromRoute(hash) !== undefined ||
+    getJobIdFromEditRoute(hash) !== undefined
+  )
 }
 
 async function completeLogin(

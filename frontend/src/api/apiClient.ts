@@ -1,6 +1,6 @@
 import { StoredSession } from '../auth/StoredSession'
-import { JobStatus } from '../types/Job'
 import type { Job } from '../types/Job'
+import type { JobStatus } from '../types/Job'
 import type { LoginResponse } from '../types/LoginResponse'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
@@ -15,20 +15,20 @@ export class SessionExpiredError extends Error {
   public constructor() {
     super('Your session has expired. Please log in again.')
   }
+}
 
-  /**
-   * Payload accepted by the create and update job endpoints.
-   */
-  export interface SaveJobRequest {
-    /** Customer name required by the API. */
-    customerName: string
-    /** Site address required by the API. */
-    siteAddress: string
-    /** Optional lifecycle status update. */
-    status?: JobStatus
-    /** Optional payment-state update. */
-    paid?: boolean
-  }
+/**
+ * Payload accepted by the create and update job endpoints.
+ */
+export interface SaveJobRequest {
+  /** Customer name required by the API. */
+  customerName: string
+  /** Site address required by the API. */
+  siteAddress: string
+  /** Optional lifecycle status update. */
+  status?: JobStatus
+  /** Optional payment-state update. */
+  paid?: boolean
 }
 
 /**
