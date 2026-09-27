@@ -68,12 +68,14 @@ cd ~/app
 
 Copy the required deployment files into `~/app` from your local checkout. From your local machine at the repository root, run:
 
+- Prerequisite: `rsync` installed on your local machine.
 - The compose stack uses prebuilt images (`ghcr.io/...`) and bind-mounts a script from `infra/postgres/`, so copy the compose file, optional `.env.example`, and the `infra/postgres/` directory to preserve expected paths.
 - Required files for this deployment mode are: `docker-compose.yml`, `infra/postgres/init.sh`, and `.env` (generated on the VPS from `.env.example`, if provided). No compose override files are used in this runbook.
 
 ```bash
 COMPOSE_FILE="docker-compose.yml"
 test -f "$COMPOSE_FILE"
+ssh deploy@<your-vps-host> "mkdir -p ~/app/infra/postgres"
 if [ -f .env.example ]; then
   rsync -av "$COMPOSE_FILE" .env.example deploy@<your-vps-host>:~/app/
 else
