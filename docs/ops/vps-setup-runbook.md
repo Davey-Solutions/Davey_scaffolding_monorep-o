@@ -64,10 +64,15 @@ mkdir -p ~/app
 cd ~/app
 ```
 
-Fetch the deployment files into `~/app` (this repo uses `docker-compose.yml`), then create `.env`:
+Copy the deployment files into `~/app` (this repo uses `docker-compose.yml`). From your local machine, run:
 
 ```bash
-git clone https://github.com/Davey-Solutions/Davey_scaffolding_monorep-o.git .
+scp docker-compose.yml .env.example deploy@<your-vps-host>:~/app/
+```
+
+Then on the VPS, create `.env`:
+
+```bash
 cp .env.example .env
 chmod 600 .env
 ```
