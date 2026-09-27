@@ -91,7 +91,7 @@ docker compose up -d
 docker compose ps
 ```
 
-Health checks:
+Health checks (run these on the VPS shell where Docker Compose is running):
 
 ```bash
 curl -f http://localhost:8080/actuator/health   # gateway (ports: "8080:8080")
