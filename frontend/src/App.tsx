@@ -95,7 +95,13 @@ function App() {
   async function handleCreateJob(request: SaveJobRequest) {
     try {
       const createdJob = await createJob(request)
-      setJobs((currentJobs) => [...currentJobs, createdJob])
+      setJobs((currentJobs) => {
+        if (currentJobs.some((job) => job.id === createdJob.id)) {
+          return currentJobs.map((job) => (job.id === createdJob.id ? createdJob : job))
+        }
+
+        return [...currentJobs, createdJob]
+      })
       navigateTo(buildJobDetailRoute(createdJob.id))
       setRouteHash(buildJobDetailRoute(createdJob.id))
     } catch (error: unknown) {

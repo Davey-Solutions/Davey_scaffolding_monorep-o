@@ -361,7 +361,11 @@ function JobFormView(props: {
             </label>
           </>
         ) : null}
-        {formError ? <p className="panel panel-error">{formError}</p> : null}
+        {formError ? (
+          <p className="panel panel-error" role="alert">
+            {formError}
+          </p>
+        ) : null}
         <div className="job-form-actions">
           <button className="job-primary-button" disabled={isSubmitting} type="submit">
             {isSubmitting ? pendingLabel : submitLabel}
