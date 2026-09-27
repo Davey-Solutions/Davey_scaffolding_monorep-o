@@ -64,7 +64,7 @@ mkdir -p ~/app
 cd ~/app
 ```
 
-Copy deployment files (`docker-compose.yml`, `.env.example`) from this repository release/checkout, then create `.env`:
+Copy deployment files (`docker-compose.yml` and `.env.example`) from this repository release/checkout into `~/app` (this repo uses `docker-compose.yml`), then create `.env`:
 
 ```bash
 cp .env.example .env
@@ -98,8 +98,6 @@ docker compose ps gateway auth-service job-service
 ```
 
 In the `STATUS` column, each service should be `Up` and, where health checks are configured, include `(healthy)`. If a service is missing, restarting, exited, or unhealthy, inspect logs:
-
-If any service is unhealthy, inspect logs:
 
 ```bash
 docker compose logs --tail=200
