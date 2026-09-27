@@ -111,7 +111,9 @@ Set production secrets in `.env` (minimum required):
 Before continuing, confirm required keys are present and non-empty in `.env`.
 
 ```bash
-test "$(grep -Ec '^(JWT_SECRET|POSTGRES_PASSWORD|AUTH_DB_PASSWORD|JOBS_DB_PASSWORD)=.+$' .env)" -eq 4
+for key in JWT_SECRET POSTGRES_PASSWORD AUTH_DB_PASSWORD JOBS_DB_PASSWORD; do
+  grep -Eq "^${key}=.+$" .env
+done
 ```
 
 ## 6) Start and verify the stack
