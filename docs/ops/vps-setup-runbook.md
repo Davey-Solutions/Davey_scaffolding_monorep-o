@@ -68,10 +68,16 @@ cd ~/app
 
 Copy the required deployment files into `~/app` from your local checkout. From your local machine at the repository root, run:
 
-- `docker-compose.yml` in this repository uses prebuilt images (`ghcr.io/...`) and bind-mounts a script from `infra/postgres/`, so copy `docker-compose.yml`, `.env.example`, and the `infra/postgres/` directory to preserve the expected path.
+- The compose stack uses prebuilt images (`ghcr.io/...`) and bind-mounts a script from `infra/postgres/`, so copy the compose file, optional `.env.example`, and the `infra/postgres/` directory to preserve expected paths.
 
 ```bash
-rsync -av docker-compose.yml .env.example deploy@<your-vps-host>:~/app/
+COMPOSE_FILE="$(ls -1 compose.yaml compose.yml docker-compose.yaml docker-compose.yml 2>/dev/null | head -n1)"
+test -n "$COMPOSE_FILE"
+if [ -f .env.example ]; then
+  rsync -av "$COMPOSE_FILE" .env.example deploy@<your-vps-host>:~/app/
+else
+  rsync -av "$COMPOSE_FILE" deploy@<your-vps-host>:~/app/
+fi
 rsync -av infra/postgres/ deploy@<your-vps-host>:~/app/infra/postgres/
 ```
 
@@ -108,7 +114,7 @@ Health checks (run these on the VPS shell where Docker Compose is running):
 docker compose ps gateway auth-service job-service
 ```
 
-In the `STATE` output for each service, it should be `running` and, where health checks are configured, include `healthy`. If a service is missing, restarting, exited, or unhealthy, inspect logs:
+In the output, each service should be up/running and, where health checks are configured, show `healthy`. If a service is missing, restarting, exited, or unhealthy, inspect logs:
 
 ```bash
 docker compose logs --tail=200 gateway auth-service job-service
