@@ -69,7 +69,7 @@ cd ~/app
 Copy the deployment artifact into `~/app` from your local checkout (the compose stack also needs files under `infra/`, not only `docker-compose.yml`). From your local machine at the repository root, run:
 
 ```bash
-rsync -av --exclude '.git' ./ deploy@<your-vps-host>:~/app/
+rsync -av --exclude '.git' --exclude '.env' ./ deploy@<your-vps-host>:~/app/
 ```
 
 Then on the VPS, create `.env`:
