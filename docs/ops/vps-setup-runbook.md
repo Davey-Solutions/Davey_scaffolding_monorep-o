@@ -85,7 +85,16 @@ rsync -av infra/postgres/ deploy@<your-vps-host>:~/app/infra/postgres/
 Then on the VPS, create `.env`:
 
 ```bash
-if [ -f .env.example ]; then cp .env.example .env; else touch .env; fi
+if [ -f .env.example ]; then
+  cp .env.example .env
+else
+  cat > .env <<'EOF'
+JWT_SECRET=
+POSTGRES_PASSWORD=
+AUTH_DB_PASSWORD=
+JOBS_DB_PASSWORD=
+EOF
+fi
 chmod 600 .env
 ```
 
@@ -98,6 +107,12 @@ Set production secrets in `.env` (minimum required):
 - Optional bootstrap owner credentials:
   - `AUTH_BOOTSTRAP_OWNER_EMAIL`
   - `AUTH_BOOTSTRAP_OWNER_PASSWORD`
+
+Before continuing, confirm required keys are present and non-empty in `.env`.
+
+```bash
+grep -E '^(JWT_SECRET|POSTGRES_PASSWORD|AUTH_DB_PASSWORD|JOBS_DB_PASSWORD)=.+$' .env
+```
 
 ## 6) Start and verify the stack
 
