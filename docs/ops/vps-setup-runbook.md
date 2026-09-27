@@ -94,12 +94,12 @@ docker compose ps
 Health checks (run these on the VPS shell where Docker Compose is running):
 
 ```bash
-docker inspect --format '{{.State.Health.Status}}' "$(docker compose ps -q gateway)"
-docker inspect --format '{{.State.Health.Status}}' "$(docker compose ps -q auth-service)"
-docker inspect --format '{{.State.Health.Status}}' "$(docker compose ps -q job-service)"
+docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$(docker compose ps -q gateway)"
+docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$(docker compose ps -q auth-service)"
+docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$(docker compose ps -q job-service)"
 ```
 
-Each command should output `healthy`.
+For this repository's compose file, each command should output `healthy`.
 
 If any service is unhealthy, inspect logs:
 
