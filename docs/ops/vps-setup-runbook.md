@@ -68,7 +68,7 @@ cd ~/app
 
 Copy the required deployment files into `~/app` from your local checkout. From your local machine at the repository root, run:
 
-- `docker-compose.yml` in this repository uses prebuilt images (`ghcr.io/...`) and one local bind-mounted file (`infra/postgres/init.sh`), so these are the files that must be copied for the stack to start.
+- `docker-compose.yml` in this repository uses prebuilt images (`ghcr.io/...`) and bind-mounts a script from `infra/postgres/`, so copy `docker-compose.yml`, `.env.example`, and the `infra/postgres/` directory to preserve the expected path.
 
 ```bash
 rsync -av docker-compose.yml .env.example deploy@<your-vps-host>:~/app/
