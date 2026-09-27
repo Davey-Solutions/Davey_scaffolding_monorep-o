@@ -99,7 +99,7 @@ docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-
 docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$(docker compose ps -q job-service)"
 ```
 
-For this repository's current compose file, each command should output `healthy`. If you see `no-healthcheck`, that container image/config does not define a health check and you should use `docker compose ps` and `docker compose logs --tail=200` for verification.
+Each command returns either `healthy` (health check configured and passing) or `no-healthcheck` (container has no health check configured). If you see anything else, or a service is restarting, use `docker compose ps` and `docker compose logs --tail=200` for verification.
 
 If any service is unhealthy, inspect logs:
 
