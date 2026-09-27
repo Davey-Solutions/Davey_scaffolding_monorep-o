@@ -94,10 +94,12 @@ docker compose ps
 Health checks (run these on the VPS shell where Docker Compose is running):
 
 ```bash
-docker compose exec gateway curl -f http://localhost:8080/actuator/health
-docker compose exec auth-service curl -f http://localhost:8080/actuator/health
-docker compose exec job-service curl -f http://localhost:8080/actuator/health
+docker inspect --format '{{.State.Health.Status}}' "$(docker compose ps -q gateway)"
+docker inspect --format '{{.State.Health.Status}}' "$(docker compose ps -q auth-service)"
+docker inspect --format '{{.State.Health.Status}}' "$(docker compose ps -q job-service)"
 ```
+
+Each command should output `healthy`.
 
 If any service is unhealthy, inspect logs:
 
