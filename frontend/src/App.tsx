@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { type Dispatch, type SetStateAction, useEffect, useMemo, useState } from 'react'
 import './App.css'
 import {
   createJob,
@@ -33,6 +33,16 @@ type JobsLoaderActions = {
   onSessionExpired: (message: string) => void
 }
 
+type SessionResetActions = {
+  setSession: (session: StoredSession | null) => void
+  setRouteHash: (routeHash: string) => void
+  setLoginError: (message: string | null) => void
+}
+
+type JobMutationActions = SessionResetActions & {
+  setJobs: Dispatch<SetStateAction<Job[]>>
+}
+
 /**
  * Root application component for the frontend login flow.
  *
@@ -53,6 +63,7 @@ function App() {
   const editingJobId = getJobIdFromEditRoute(routeHash)
   const selectedJobId = getSelectedJobId(routeHash, isCreateRoute, editingJobId)
   const showJobsView = isKnownJobsRoute(routeHash)
+  const jobMutationActions = createJobMutationActions(setJobs, setLoginError, setRouteHash, setSession)
 
   useEffect(() => registerHashChangeHandler(setRouteHash), [])
   useEffect(() => syncRouteWithSession(session, setRouteHash), [session])
@@ -93,45 +104,11 @@ function App() {
   }
 
   async function handleCreateJob(request: SaveJobRequest) {
-    try {
-      const createdJob = await createJob(request)
-      setJobs((currentJobs) => {
-        const existingJobIndex = currentJobs.findIndex((job) => job.id === createdJob.id)
-
-        if (existingJobIndex >= 0) {
-          const nextJobs = [...currentJobs]
-          nextJobs[existingJobIndex] = createdJob
-          return nextJobs
-        }
-
-        return [...currentJobs, createdJob]
-      })
-      navigateTo(buildJobDetailRoute(createdJob.id))
-      setRouteHash(buildJobDetailRoute(createdJob.id))
-    } catch (error: unknown) {
-      if (error instanceof SessionExpiredError) {
-        resetSession(setSession, setRouteHash, setLoginError, error.message)
-        return
-      }
-
-      throw error
-    }
+    await saveJobAndShowDetails(() => createJob(request), addOrReplaceJob, jobMutationActions)
   }
 
   async function handleUpdateJob(jobId: string, request: SaveJobRequest) {
-    try {
-      const updatedJob = await updateJob(jobId, request)
-      setJobs((currentJobs) => replaceJob(currentJobs, updatedJob))
-      navigateTo(buildJobDetailRoute(updatedJob.id))
-      setRouteHash(buildJobDetailRoute(updatedJob.id))
-    } catch (error: unknown) {
-      if (error instanceof SessionExpiredError) {
-        resetSession(setSession, setRouteHash, setLoginError, error.message)
-        return
-      }
-
-      throw error
-    }
+    await saveJobAndShowDetails(() => updateJob(jobId, request), replaceJob, jobMutationActions)
   }
 
   if (showJobsView && session) {
@@ -180,6 +157,20 @@ function getSelectedJobId(
   }
 
   return getJobIdFromRoute(routeHash)
+}
+
+function createJobMutationActions(
+  setJobs: Dispatch<SetStateAction<Job[]>>,
+  setLoginError: (message: string | null) => void,
+  setRouteHash: (routeHash: string) => void,
+  setSession: (session: StoredSession | null) => void,
+): JobMutationActions {
+  return {
+    setJobs,
+    setLoginError,
+    setRouteHash,
+    setSession,
+  }
 }
 
 function getInitialRoute(session: StoredSession | null) {
@@ -307,6 +298,55 @@ function getErrorMessage(error: unknown, fallback: string) {
   }
 
   return fallback
+}
+
+async function saveJobAndShowDetails(
+  saveJob: () => Promise<Job>,
+  mergeJob: (jobs: Job[], savedJob: Job) => Job[],
+  actions: JobMutationActions,
+) {
+  try {
+    const savedJob = await saveJob()
+    showSavedJob(savedJob, mergeJob, actions)
+  } catch (error: unknown) {
+    handleJobMutationError(error, actions)
+  }
+}
+
+function showSavedJob(
+  savedJob: Job,
+  mergeJob: (jobs: Job[], savedJob: Job) => Job[],
+  actions: JobMutationActions,
+) {
+  actions.setJobs((currentJobs) => mergeJob(currentJobs, savedJob))
+  navigateToJobDetails(savedJob.id, actions.setRouteHash)
+}
+
+function navigateToJobDetails(jobId: string, setRouteHash: (routeHash: string) => void) {
+  const nextRoute = buildJobDetailRoute(jobId)
+  navigateTo(nextRoute)
+  setRouteHash(nextRoute)
+}
+
+function handleJobMutationError(error: unknown, actions: SessionResetActions) {
+  if (error instanceof SessionExpiredError) {
+    resetSession(actions.setSession, actions.setRouteHash, actions.setLoginError, error.message)
+    return
+  }
+
+  throw error
+}
+
+function addOrReplaceJob(jobs: Job[], savedJob: Job) {
+  const existingJobIndex = jobs.findIndex((job) => job.id === savedJob.id)
+
+  if (existingJobIndex >= 0) {
+    const nextJobs = [...jobs]
+    nextJobs[existingJobIndex] = savedJob
+    return nextJobs
+  }
+
+  return [...jobs, savedJob]
 }
 
 function replaceJob(jobs: Job[], updatedJob: Job) {
