@@ -195,6 +195,7 @@ function loadJobsForRoute(
 ) {
   const shouldLoadJobs =
     isJobsRoute(routeHash) ||
+    isCreateJobRoute(routeHash) ||
     getJobIdFromRoute(routeHash) !== undefined ||
     getJobIdFromEditRoute(routeHash) !== undefined
 
