@@ -1,30 +1,27 @@
-import { JobStatus } from '../types/Job'
-import type { Job } from '../types/Job'
-import { useMemo, useState } from 'react'
-import { buildJobDetailRoute, JOBS_ROUTE } from '../routes'
-
-/**
- * Props required to render the jobs screen.
- */
-export interface JobsViewProps {
-  /** Jobs loaded for the signed-in user. */
-  jobs: Job[]
-  /** Whether the jobs request is still loading. */
-  isLoadingJobs: boolean
-  /** Optional error shown when jobs fail to load. */
-  jobsError: string | null
-  /** Deletes a job by id. */
-  onDeleteJob: (jobId: string) => Promise<void>
-  /** Optional selected job id for detail rendering. */
-  selectedJobId?: string
-}
-
-type StatusFilter = 'ALL' | JobStatus
-type PaidFilter = 'ALL' | 'PAID' | 'UNPAID'
-type JobFiltersState = {
-  status: StatusFilter
-  paid: PaidFilter
-}
+import { type Dispatch, type FormEvent, type SetStateAction, useEffect, useMemo, useRef, useState } from 'react'
+import type { SaveJobRequest } from '../api/SaveJobRequest'
+import {
+  buildCreateJobRoute,
+  buildEditJobRoute,
+  buildJobDetailRoute,
+  JOBS_ROUTE,
+} from '../routes'
+import { Job } from '../types/Job'
+import { JobStatus } from '../types/JobStatus'
+import type { JobStatus as JobStatusValue } from '../types/JobStatus'
+import type {
+  JobDetailViewProps,
+  JobFiltersState,
+  JobFormFieldErrors,
+  JobFormMode,
+  JobFormValues,
+  JobFormViewProps,
+  JobListProps,
+  JobsFiltersProps,
+  JobsViewProps,
+  PaidFilter,
+  StatusFilter,
+} from './JobsViewModels'
 
 /**
  * Jobs screen shown after a successful login.
@@ -37,13 +34,9 @@ export function JobsView(props: JobsViewProps) {
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deletingJobIds, setDeletingJobIds] = useState<string[]>([])
   const statusOptions = useMemo(() => getStatusOptions(props.jobs), [props.jobs])
-  const selectedJob = useMemo(
-    () => (props.selectedJobId ? props.jobs.find((job) => job.id === props.selectedJobId) ?? null : null),
-    [props.jobs, props.selectedJobId],
-  )
-  const filteredJobs = useMemo(() => {
-    return props.jobs.filter((job) => matchesFilters(job, filters))
-  }, [filters, props.jobs])
+  const selectedJob = useMemo(() => findJobById(props.jobs, props.selectedJobId), [props.jobs, props.selectedJobId])
+  const editingJob = useMemo(() => findJobById(props.jobs, props.editingJobId), [props.editingJobId, props.jobs])
+  const filteredJobs = useMemo(() => props.jobs.filter((job) => matchesFilters(job, filters)), [filters, props.jobs])
 
   if (props.isLoadingJobs) {
     return <p className="panel">Loading jobs…</p>
@@ -69,8 +62,16 @@ export function JobsView(props: JobsViewProps) {
     }
   }
 
+  if (props.isCreatingJob) {
+    return renderCreateJobView(props.onCreateJob)
+  }
+
+  if (props.editingJobId) {
+    return renderEditJobView(editingJob, props.onUpdateJob)
+  }
+
   if (props.selectedJobId) {
-    return selectedJob ? <JobDetailView job={selectedJob} /> : <JobNotFoundView />
+    return renderSelectedJobView(selectedJob)
   }
 
   return (
@@ -80,31 +81,87 @@ export function JobsView(props: JobsViewProps) {
           <p className="eyebrow">Signed in</p>
           <h1>Jobs</h1>
         </div>
-        <JobsFilters
-          filters={filters}
-          onPaidFilterChange={(value) => setFilters((current) => ({ ...current, paid: value }))}
-          onStatusFilterChange={(value) =>
-            setFilters((current) => ({ ...current, status: value }))
-          }
-          statusOptions={statusOptions}
-        />
+        <div className="jobs-header-actions">
+          <a className="job-primary-action" href={buildCreateJobRoute()}>
+            Create job
+          </a>
+          <JobsFilters
+            filters={filters}
+            onPaidFilterChange={(value) => setFilters((current) => ({ ...current, paid: value }))}
+            onStatusFilterChange={(value) => setFilters((current) => ({ ...current, status: value }))}
+            statusOptions={statusOptions}
+          />
+        </div>
       </header>
       <div aria-live="polite">
-        {deleteError ? <p className="panel panel-error">{deleteError}</p> : null}
-        {props.jobs.length === 0 ? <p className="panel">No jobs yet.</p> : null}
-        {props.jobs.length > 0 && filteredJobs.length === 0 ? (
-          <p className="panel">No jobs match the selected filters.</p>
-        ) : null}
-        {filteredJobs.length > 0 ? (
-          <JobList
-            deletingJobIds={deletingJobIds}
-            jobs={filteredJobs}
-            onDeleteJob={(job) => void handleDeleteJob(job)}
-          />
-        ) : null}
+        {renderDeleteError(deleteError)}
+        {renderJobListState(props.jobs, filteredJobs, deletingJobIds, handleDeleteJob)}
       </div>
     </section>
   )
+}
+
+function renderCreateJobView(onCreateJob: (request: SaveJobRequest) => Promise<void>) {
+  return (
+    <JobFormView
+      key="create-job"
+      cancelHref={JOBS_ROUTE}
+      mode="create"
+      onSubmit={onCreateJob}
+    />
+  )
+}
+
+function renderEditJobView(
+  editingJob: Job | null,
+  onUpdateJob: (jobId: string, request: SaveJobRequest) => Promise<void>,
+) {
+  if (!editingJob) {
+    return <JobNotFoundView />
+  }
+
+  return (
+    <JobFormView
+      key={editingJob.id}
+      cancelHref={buildJobDetailRoute(editingJob.id)}
+      job={editingJob}
+      mode="edit"
+      onSubmit={(request) => onUpdateJob(editingJob.id, request)}
+    />
+  )
+}
+
+function renderSelectedJobView(selectedJob: Job | null) {
+  if (!selectedJob) {
+    return <JobNotFoundView />
+  }
+
+  return <JobDetailView job={selectedJob} />
+}
+
+function renderDeleteError(deleteError: string | null) {
+  if (!deleteError) {
+    return null
+  }
+
+  return <p className="panel panel-error">{deleteError}</p>
+}
+
+function renderJobListState(
+  jobs: Job[],
+  filteredJobs: Job[],
+  deletingJobIds: string[],
+  onDeleteJob: (job: Job) => void,
+) {
+  if (jobs.length === 0) {
+    return <p className="panel">No jobs yet.</p>
+  }
+
+  if (filteredJobs.length === 0) {
+    return <p className="panel">No jobs match the selected filters.</p>
+  }
+
+  return <JobList deletingJobIds={deletingJobIds} jobs={filteredJobs} onDeleteJob={onDeleteJob} />
 }
 
 function JobNotFoundView() {
@@ -118,7 +175,7 @@ function JobNotFoundView() {
   )
 }
 
-function JobDetailView({ job }: { job: Job }) {
+function JobDetailView(props: JobDetailViewProps) {
   return (
     <section className="jobs-view">
       <header className="jobs-header">
@@ -126,24 +183,29 @@ function JobDetailView({ job }: { job: Job }) {
           <p className="eyebrow">Signed in</p>
           <h1>Job details</h1>
         </div>
-        <a href={JOBS_ROUTE}>Back to jobs</a>
+        <div className="jobs-header-actions">
+          <a className="job-primary-action" href={buildEditJobRoute(props.job.id)}>
+            Edit job
+          </a>
+          <a href={JOBS_ROUTE}>Back to jobs</a>
+        </div>
       </header>
       <article className="job-card">
-        <JobBadges job={job} />
-        <h2>{job.customerName}</h2>
-        <p>{job.siteAddress}</p>
+        <JobBadges job={props.job} />
+        <h2>{props.job.customerName}</h2>
+        <p>{props.job.siteAddress}</p>
         <dl>
           <div>
             <dt>Job ID</dt>
-            <dd>{job.id}</dd>
+            <dd>{props.job.id}</dd>
           </div>
           <div>
             <dt>Status</dt>
-            <dd>{job.status}</dd>
+            <dd>{props.job.status}</dd>
           </div>
           <div>
             <dt>Paid</dt>
-            <dd>{job.paid ? 'Yes' : 'No'}</dd>
+            <dd>{getPaidText(props.job.paid)}</dd>
           </div>
         </dl>
       </article>
@@ -151,11 +213,171 @@ function JobDetailView({ job }: { job: Job }) {
   )
 }
 
-function JobList(props: {
-  jobs: Job[]
-  deletingJobIds: string[]
-  onDeleteJob: (job: Job) => void
-}) {
+function JobFormView(props: JobFormViewProps) {
+  const [values, setValues] = useState<JobFormValues>(() => getInitialJobFormValues(props.job))
+  const [fieldErrors, setFieldErrors] = useState<JobFormFieldErrors>({})
+  const [formError, setFormError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const customerNameErrorId = 'job-form-customer-name-error'
+  const siteAddressErrorId = 'job-form-site-address-error'
+  const resetKeyRef = useRef<string | null>(null)
+  const formResetKey = buildFormResetKey(props)
+
+  useEffect(() => {
+    if (resetKeyRef.current === formResetKey) {
+      return
+    }
+
+    resetKeyRef.current = formResetKey
+    setValues(getInitialJobFormValues(props.job))
+    setFieldErrors({})
+    setFormError(null)
+    setIsSubmitting(false)
+  }, [formResetKey, props.job])
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setFormError(null)
+
+    const nextFieldErrors = validateJobForm(values)
+    setFieldErrors(nextFieldErrors)
+
+    if (hasFieldErrors(nextFieldErrors)) {
+      return
+    }
+
+    setIsSubmitting(true)
+
+    try {
+      await props.onSubmit(buildSaveJobRequest(values, props.mode))
+    } catch (error: unknown) {
+      setFormError(getJobFormErrorMessage(error, props.mode))
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <section className="jobs-view">
+      <header className="jobs-header">
+        <div>
+          <p className="eyebrow">Signed in</p>
+          <h1>{getJobFormHeading(props.mode)}</h1>
+        </div>
+        <a href={props.cancelHref}>Cancel</a>
+      </header>
+      <form className="job-form" noValidate onSubmit={handleSubmit}>
+        <label>
+          <span>Customer name</span>
+          <input
+            aria-describedby={getFieldErrorId(fieldErrors.customerName, customerNameErrorId)}
+            aria-invalid={Boolean(fieldErrors.customerName)}
+            name="customerName"
+            onChange={(event) => {
+              setValues((current) => ({ ...current, customerName: event.target.value }))
+              setFieldErrors((current) => ({ ...current, customerName: undefined }))
+            }}
+            required
+            type="text"
+            value={values.customerName}
+          />
+        </label>
+        {renderFieldError(fieldErrors.customerName, customerNameErrorId)}
+        <label>
+          <span>Site address</span>
+          <input
+            aria-describedby={getFieldErrorId(fieldErrors.siteAddress, siteAddressErrorId)}
+            aria-invalid={Boolean(fieldErrors.siteAddress)}
+            name="siteAddress"
+            onChange={(event) => {
+              setValues((current) => ({ ...current, siteAddress: event.target.value }))
+              setFieldErrors((current) => ({ ...current, siteAddress: undefined }))
+            }}
+            required
+            type="text"
+            value={values.siteAddress}
+          />
+        </label>
+        {renderFieldError(fieldErrors.siteAddress, siteAddressErrorId)}
+        {renderEditOnlyFields(props.mode, values, setValues)}
+        {renderFormError(formError)}
+        <div className="job-form-actions">
+          <button className="job-primary-button" disabled={isSubmitting} type="submit">
+            {getJobFormButtonLabel(isSubmitting, props.mode)}
+          </button>
+          <a href={props.cancelHref}>Cancel</a>
+        </div>
+      </form>
+    </section>
+  )
+}
+
+function renderEditOnlyFields(
+  mode: JobFormMode,
+  values: JobFormValues,
+  setValues: Dispatch<SetStateAction<JobFormValues>>,
+) {
+  if (mode !== 'edit') {
+    return null
+  }
+
+  return (
+    <>
+      <label>
+        <span>Status</span>
+        <select
+          name="status"
+          onChange={(event) => {
+            const nextStatus = parseJobStatus(event.target.value, values.status)
+            setValues((current) => ({ ...current, status: nextStatus }))
+          }}
+          value={values.status}
+        >
+          {JobStatus.values().map((status) => (
+            <option key={status} value={status}>
+              {status}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="job-checkbox">
+        <input
+          checked={values.paid}
+          name="paid"
+          onChange={(event) => setValues((current) => ({ ...current, paid: event.target.checked }))}
+          type="checkbox"
+        />
+        <span>Paid</span>
+      </label>
+    </>
+  )
+}
+
+function renderFieldError(message: string | undefined, errorId: string) {
+  if (!message) {
+    return null
+  }
+
+  return (
+    <p className="field-error" id={errorId}>
+      {message}
+    </p>
+  )
+}
+
+function renderFormError(formError: string | null) {
+  if (!formError) {
+    return null
+  }
+
+  return (
+    <p className="panel panel-error" role="alert">
+      {formError}
+    </p>
+  )
+}
+
+function JobList(props: JobListProps) {
   return (
     <ul className="job-list">
       {props.jobs.map((job) => (
@@ -172,7 +394,7 @@ function JobList(props: {
             </div>
             <div>
               <dt>Paid</dt>
-              <dd>{job.paid ? 'Yes' : 'No'}</dd>
+              <dd>{getPaidText(job.paid)}</dd>
             </div>
           </dl>
           <button
@@ -182,7 +404,7 @@ function JobList(props: {
             onClick={() => props.onDeleteJob(job)}
             type="button"
           >
-            {props.deletingJobIds.includes(job.id) ? 'Deleting…' : 'Delete'}
+            {getDeleteButtonLabel(props.deletingJobIds, job.id)}
           </button>
         </li>
       ))}
@@ -190,20 +412,13 @@ function JobList(props: {
   )
 }
 
-function JobsFilters(props: {
-  filters: JobFiltersState
-  statusOptions: JobStatus[]
-  onStatusFilterChange: (value: StatusFilter) => void
-  onPaidFilterChange: (value: PaidFilter) => void
-}) {
+function JobsFilters(props: JobsFiltersProps) {
   return (
     <div className="jobs-filters">
       <label>
         Status
         <select
-          onChange={(event) =>
-            props.onStatusFilterChange(parseStatusFilter(event.target.value, props.statusOptions))
-          }
+          onChange={(event) => props.onStatusFilterChange(parseStatusFilter(event.target.value, props.statusOptions))}
           value={props.filters.status}
         >
           <option value="ALL">All statuses</option>
@@ -232,21 +447,208 @@ function JobsFilters(props: {
 function JobBadges({ job }: { job: Job }) {
   return (
     <div className="job-badges">
-      {job.status === JobStatus.COMPLETED ? <span className="job-badge">Completed</span> : null}
-      {job.paid ? <span className="job-badge job-badge-paid">Paid</span> : null}
+      {renderCompletedBadge(job)}
+      {renderPaidBadge(job)}
     </div>
   )
 }
 
-function getStatusOptions(jobs: Job[]): JobStatus[] {
+function renderCompletedBadge(job: Job) {
+  if (job.status !== JobStatus.COMPLETED) {
+    return null
+  }
+
+  return <span className="job-badge">Completed</span>
+}
+
+function renderPaidBadge(job: Job) {
+  if (!job.paid) {
+    return null
+  }
+
+  return <span className="job-badge job-badge-paid">Paid</span>
+}
+
+function findJobById(jobs: Job[], jobId: string | undefined) {
+  if (!jobId) {
+    return null
+  }
+
+  for (const job of jobs) {
+    if (job.id === jobId) {
+      return job
+    }
+  }
+
+  return null
+}
+
+function buildFormResetKey(props: JobFormViewProps) {
+  return JSON.stringify({
+    mode: props.mode,
+    id: props.job?.id ?? null,
+    customerName: props.job?.customerName ?? null,
+    siteAddress: props.job?.siteAddress ?? null,
+    status: props.job?.status ?? null,
+    paid: props.job?.paid ?? null,
+  })
+}
+
+function getFieldErrorId(message: string | undefined, errorId: string) {
+  if (!message) {
+    return undefined
+  }
+
+  return errorId
+}
+
+function getJobFormHeading(mode: JobFormMode) {
+  if (mode === 'create') {
+    return 'Create job'
+  }
+
+  return 'Edit job'
+}
+
+function getJobFormButtonLabel(isSubmitting: boolean, mode: JobFormMode) {
+  if (isSubmitting) {
+    return getJobFormPendingLabel(mode)
+  }
+
+  return getJobFormSubmitLabel(mode)
+}
+
+function getJobFormPendingLabel(mode: JobFormMode) {
+  if (mode === 'create') {
+    return 'Creating…'
+  }
+
+  return 'Saving…'
+}
+
+function getJobFormSubmitLabel(mode: JobFormMode) {
+  if (mode === 'create') {
+    return 'Create job'
+  }
+
+  return 'Save changes'
+}
+
+function getJobFormErrorMessage(error: unknown, mode: JobFormMode) {
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  if (mode === 'create') {
+    return 'Unable to create job.'
+  }
+
+  return 'Unable to save job changes.'
+}
+
+function getDeleteButtonLabel(deletingJobIds: string[], jobId: string) {
+  if (deletingJobIds.includes(jobId)) {
+    return 'Deleting…'
+  }
+
+  return 'Delete'
+}
+
+function getPaidText(paid: boolean) {
+  if (paid) {
+    return 'Yes'
+  }
+
+  return 'No'
+}
+
+function getInitialJobFormValues(job?: Job): JobFormValues {
+  if (!job) {
+    return {
+      customerName: '',
+      siteAddress: '',
+      status: JobStatus.PENDING,
+      paid: false,
+    }
+  }
+
+  const copiedJob = new Job(job)
+  return {
+    customerName: copiedJob.customerName,
+    siteAddress: copiedJob.siteAddress,
+    status: copiedJob.status,
+    paid: copiedJob.paid,
+  }
+}
+
+function validateJobForm(values: JobFormValues): JobFormFieldErrors {
+  return {
+    customerName: getRequiredFieldError(values.customerName, 'Customer name is required.'),
+    siteAddress: getRequiredFieldError(values.siteAddress, 'Site address is required.'),
+  }
+}
+
+function getRequiredFieldError(value: string, message: string) {
+  if (value.trim()) {
+    return undefined
+  }
+
+  return message
+}
+
+function hasFieldErrors(fieldErrors: JobFormFieldErrors) {
+  return Boolean(fieldErrors.customerName || fieldErrors.siteAddress)
+}
+
+function buildSaveJobRequest(values: JobFormValues, mode: JobFormMode): SaveJobRequest {
+  const request: SaveJobRequest = {
+    customerName: values.customerName.trim(),
+    siteAddress: values.siteAddress.trim(),
+  }
+
+  if (mode === 'edit') {
+    request.status = values.status
+    request.paid = values.paid
+  }
+
+  return request
+}
+
+function parseJobStatus(value: string, fallback: JobStatusValue) {
+  if (JobStatus.is(value)) {
+    return value
+  }
+
+  return fallback
+}
+
+function getStatusOptions(jobs: Job[]) {
   const presentStatuses = new Set(jobs.map((job) => job.status))
   return JobStatus.values().filter((status) => presentStatuses.has(status))
 }
 
 function matchesFilters(job: Job, filters: JobFiltersState) {
-  const matchesStatus = filters.status === 'ALL' || job.status === filters.status
-  const matchesPaid = filters.paid === 'ALL' || (filters.paid === 'PAID' ? job.paid : !job.paid)
-  return matchesStatus && matchesPaid
+  return matchesStatusFilter(job, filters.status) && matchesPaidFilter(job, filters.paid)
+}
+
+function matchesStatusFilter(job: Job, statusFilter: StatusFilter) {
+  if (statusFilter === 'ALL') {
+    return true
+  }
+
+  return job.status === statusFilter
+}
+
+function matchesPaidFilter(job: Job, paidFilter: PaidFilter) {
+  if (paidFilter === 'ALL') {
+    return true
+  }
+
+  if (paidFilter === 'PAID') {
+    return job.paid
+  }
+
+  return !job.paid
 }
 
 function parseStatusFilter(value: string, statusOptions: JobStatus[]): StatusFilter {
@@ -262,7 +664,11 @@ function parseStatusFilter(value: string, statusOptions: JobStatus[]): StatusFil
 }
 
 function parsePaidFilter(value: string): PaidFilter {
-  if (value === 'PAID' || value === 'UNPAID') {
+  if (value === 'PAID') {
+    return value
+  }
+
+  if (value === 'UNPAID') {
     return value
   }
 
@@ -289,6 +695,14 @@ async function tryDeleteJob(
   try {
     await onDeleteJob(jobId)
   } catch (error: unknown) {
-    setDeleteError(error instanceof Error ? error.message : 'Unable to delete job.')
+    setDeleteError(getDeleteErrorMessage(error))
   }
+}
+
+function getDeleteErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  return 'Unable to delete job.'
 }

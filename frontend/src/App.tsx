@@ -1,10 +1,26 @@
-import { useEffect, useMemo, useState } from 'react'
+import { type Dispatch, type SetStateAction, useEffect, useMemo, useState } from 'react'
 import './App.css'
-import { deleteJob, loadJobs, login, SessionExpiredError } from './api/apiClient'
+import {
+  createJob,
+  deleteJob,
+  loadJobs,
+  login,
+  updateJob,
+} from './api/apiClient'
+import type { SaveJobRequest } from './api/SaveJobRequest'
+import { SessionExpiredError } from './api/SessionExpiredError'
 import { StoredSession } from './auth/StoredSession'
 import { JobsView } from './components/JobsView'
 import { LoginView } from './components/LoginView'
-import { getJobIdFromRoute, JOBS_ROUTE, isJobsRoute, navigateTo } from './routes'
+import {
+  buildJobDetailRoute,
+  getJobIdFromEditRoute,
+  getJobIdFromRoute,
+  isCreateJobRoute,
+  JOBS_ROUTE,
+  isJobsRoute,
+  navigateTo,
+} from './routes'
 import type { Job } from './types/Job'
 
 /**
@@ -15,6 +31,16 @@ type JobsLoaderActions = {
   setJobsError: (message: string | null) => void
   setJobs: (jobs: Job[]) => void
   onSessionExpired: (message: string) => void
+}
+
+type SessionResetActions = {
+  setSession: (session: StoredSession | null) => void
+  setRouteHash: (routeHash: string) => void
+  setLoginError: (message: string | null) => void
+}
+
+type JobMutationActions = SessionResetActions & {
+  setJobs: Dispatch<SetStateAction<Job[]>>
 }
 
 /**
@@ -33,8 +59,11 @@ function App() {
   const [loginError, setLoginError] = useState<string | null>(null)
   const [isLoadingJobs, setIsLoadingJobs] = useState(false)
   const [routeHash, setRouteHash] = useState(() => getInitialRoute(initialSession))
-  const selectedJobId = getJobIdFromRoute(routeHash)
-  const showJobsView = isJobsRoute(routeHash) || selectedJobId !== undefined
+  const isCreateRoute = isCreateJobRoute(routeHash)
+  const editingJobId = getJobIdFromEditRoute(routeHash)
+  const selectedJobId = getSelectedJobId(routeHash, isCreateRoute, editingJobId)
+  const showJobsView = isKnownJobsRoute(routeHash)
+  const jobMutationActions = createJobMutationActions(setJobs, setLoginError, setRouteHash, setSession)
 
   useEffect(() => registerHashChangeHandler(setRouteHash), [])
   useEffect(() => syncRouteWithSession(session, setRouteHash), [session])
@@ -54,7 +83,7 @@ function App() {
     try {
       await completeLogin(email, password, setSession, setPassword, setRouteHash)
     } catch (error: unknown) {
-      setLoginError(error instanceof Error ? error.message : 'Login failed.')
+      setLoginError(getErrorMessage(error, 'Login failed.'))
     } finally {
       setIsSubmitting(false)
     }
@@ -74,14 +103,26 @@ function App() {
     }
   }
 
+  async function handleCreateJob(request: SaveJobRequest) {
+    await saveJobAndShowDetails(() => createJob(request), addOrReplaceJob, jobMutationActions)
+  }
+
+  async function handleUpdateJob(jobId: string, request: SaveJobRequest) {
+    await saveJobAndShowDetails(() => updateJob(jobId, request), replaceJob, jobMutationActions)
+  }
+
   if (showJobsView && session) {
     return (
       <main className="app-shell">
         <JobsView
+          editingJobId={editingJobId}
           isLoadingJobs={isLoadingJobs}
+          isCreatingJob={isCreateRoute}
           jobs={jobs}
           jobsError={jobsError}
+          onCreateJob={handleCreateJob}
           onDeleteJob={handleDeleteJob}
+          onUpdateJob={handleUpdateJob}
           selectedJobId={selectedJobId}
         />
       </main>
@@ -106,10 +147,34 @@ function App() {
   )
 }
 
-function getInitialRoute(session: StoredSession | null) {
-  const isKnownJobsRoute = isJobsRoute() || getJobIdFromRoute() !== undefined
+function getSelectedJobId(
+  routeHash: string,
+  isCreateRoute: boolean,
+  editingJobId: string | undefined,
+) {
+  if (isCreateRoute || editingJobId) {
+    return undefined
+  }
 
-  if (isKnownJobsRoute && session) {
+  return getJobIdFromRoute(routeHash)
+}
+
+function createJobMutationActions(
+  setJobs: Dispatch<SetStateAction<Job[]>>,
+  setLoginError: (message: string | null) => void,
+  setRouteHash: (routeHash: string) => void,
+  setSession: (session: StoredSession | null) => void,
+): JobMutationActions {
+  return {
+    setJobs,
+    setLoginError,
+    setRouteHash,
+    setSession,
+  }
+}
+
+function getInitialRoute(session: StoredSession | null) {
+  if (isKnownJobsRoute() && session) {
     return window.location.hash
   }
 
@@ -126,9 +191,7 @@ function syncRouteWithSession(
   session: StoredSession | null,
   setRouteHash: (routeHash: string) => void,
 ) {
-  const isKnownJobsRoute = isJobsRoute() || getJobIdFromRoute() !== undefined
-
-  if (!isKnownJobsRoute || session) {
+  if (!isKnownJobsRoute() || session) {
     return
   }
 
@@ -141,7 +204,11 @@ function loadJobsForRoute(
   session: StoredSession | null,
   actions: JobsLoaderActions,
 ) {
-  const shouldLoadJobs = isJobsRoute(routeHash) || getJobIdFromRoute(routeHash) !== undefined
+  const shouldLoadJobs =
+    isJobsRoute(routeHash) ||
+    isCreateJobRoute(routeHash) ||
+    getJobIdFromRoute(routeHash) !== undefined ||
+    getJobIdFromEditRoute(routeHash) !== undefined
 
   if (!shouldLoadJobs || !session) {
     return
@@ -179,6 +246,15 @@ function loadJobsForRoute(
   }
 }
 
+function isKnownJobsRoute(hash: string = window.location.hash) {
+  return (
+    isJobsRoute(hash) ||
+    isCreateJobRoute(hash) ||
+    getJobIdFromRoute(hash) !== undefined ||
+    getJobIdFromEditRoute(hash) !== undefined
+  )
+}
+
 async function completeLogin(
   email: string,
   password: string,
@@ -200,7 +276,7 @@ function handleJobsError(error: unknown, actions: JobsLoaderActions) {
     return
   }
 
-  actions.setJobsError(error instanceof Error ? error.message : 'Unable to load jobs.')
+  actions.setJobsError(getErrorMessage(error, 'Unable to load jobs.'))
 }
 
 function resetSession(
@@ -214,6 +290,73 @@ function resetSession(
   navigateTo('/', true)
   setRouteHash('')
   setLoginError(message)
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  return fallback
+}
+
+async function saveJobAndShowDetails(
+  saveJob: () => Promise<Job>,
+  mergeJob: (jobs: Job[], savedJob: Job) => Job[],
+  actions: JobMutationActions,
+) {
+  try {
+    const savedJob = await saveJob()
+    showSavedJob(savedJob, mergeJob, actions)
+  } catch (error: unknown) {
+    handleJobMutationError(error, actions)
+  }
+}
+
+function showSavedJob(
+  savedJob: Job,
+  mergeJob: (jobs: Job[], savedJob: Job) => Job[],
+  actions: JobMutationActions,
+) {
+  actions.setJobs((currentJobs) => mergeJob(currentJobs, savedJob))
+  navigateToJobDetails(savedJob.id, actions.setRouteHash)
+}
+
+function navigateToJobDetails(jobId: string, setRouteHash: (routeHash: string) => void) {
+  const nextRoute = buildJobDetailRoute(jobId)
+  navigateTo(nextRoute)
+  setRouteHash(nextRoute)
+}
+
+function handleJobMutationError(error: unknown, actions: SessionResetActions) {
+  if (error instanceof SessionExpiredError) {
+    resetSession(actions.setSession, actions.setRouteHash, actions.setLoginError, error.message)
+    return
+  }
+
+  throw error
+}
+
+function addOrReplaceJob(jobs: Job[], savedJob: Job) {
+  const existingJobIndex = jobs.findIndex((job) => job.id === savedJob.id)
+
+  if (existingJobIndex >= 0) {
+    const nextJobs = [...jobs]
+    nextJobs[existingJobIndex] = savedJob
+    return nextJobs
+  }
+
+  return [...jobs, savedJob]
+}
+
+function replaceJob(jobs: Job[], updatedJob: Job) {
+  return jobs.map((job) => {
+    if (job.id === updatedJob.id) {
+      return updatedJob
+    }
+
+    return job
+  })
 }
 
 export default App
