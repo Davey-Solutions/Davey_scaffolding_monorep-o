@@ -5,3 +5,4 @@ monorepo for all Davey scaffolding code.
 
 - [System architecture](docs/arch/architecture.md)
 - [Project plan (tickets)](docs/plan/project-plan.md)
+- [VPS setup runbook](docs/ops/vps-setup-runbook.md)
